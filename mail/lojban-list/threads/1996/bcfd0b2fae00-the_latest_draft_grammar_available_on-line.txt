@@ -1,0 +1,12 @@
+# mail/lojban-list thread bcfd0b2fae00-the_latest_draft_grammar_available_on-line | root 91a53d3b6e16311ea701b52fea7c1095b762b172@no-message-id.invalid | 1 messages | rendered by jbocirvei mail-v1
+
+=== 1 | 1996-12-17T17:21:07Z | Veijo Vilva <veion@XIRON.PC.HELSINKI.FI> | 91a53d3b6e16311ea701b52fea7c1095b762b172@no-message-id.invalid | mail/lojban-list/cur/850843267.bcfd0b2fae00b2ad.lojban:2,S
+I have made the latest draft reference grammar available at the
+WWW server
+
+     http://xiron.pc.helsinki.fi/lojban/refgr/
+
+
+  co'o mi'e veion
+
+
