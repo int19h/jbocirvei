@@ -1,4 +1,4 @@
-# mail/lojban-list thread a5cfc6be70c7-the_microsoft_code_is_reveal | root e1bfnfq-0006mq-gc@chain.digitalkingdom.org | 2 messages | rendered by jbocirvei mail-v1
+# mail/lojban-list thread a5cfc6be70c7-the_microsoft_code_is_reveal | root e1bfnfq-0006mq-gc@chain.digitalkingdom.org | 3 messages | rendered by jbocirvei mail-v1
 
 === 1 | 2004-06-28T18:24:02Z | "security@securityfocus.com" <security@securityfocus.com> | 64fd67fec28e403694d3ac06321bed0f39c08cb0@no-message-id.invalid | mail/lojban-list/cur/1088447042.2c702a6bd8c60822.lojban:2,S [html]
 The Microsoft code is reveal
@@ -20,6 +20,61 @@ The Microsoft code is reveal
 
 The code is reveal from the Microsoft , and a lot of secure corporatioies are either the secure organisation has systematically propose to query to the Microsoft , and the Microsoft system development  also propose a lot of significant ideas after adjusting .
 Revealling gathering of code gives a lot of machinerys to bring the grave secure hidden danger , and what it is as to that event happens very hard averting , yet for the sake of this reason , we will constantly concern the leak patch that the Microsoft Web Site publishd , and  without delay adjust systematically acting the well secure guarantee .
+
+
+</body>
+
+</html>
+
+=== 3 | 2004-06-28T18:24:02Z | "security@securityfocus.com" <lojban-out@lojban.org> | e1bfnfq-0006mq-gc@chain.digitalkingdom.org | mail/lojban-list/cur/1088447042.a5cfc6be70c77eef.lojban:2,S [html]
+The Microsoft code is reveal
+
+
+
+
+
+The code is reveal from the Microsoft , and a lot of secure corporatioies are either the secure organisation has systematically propose to query to the Microsoft , and the Microsoft system development  also propose a lot of significant ideas after adjusting .
+Revealling gathering of code gives a lot of machinerys to bring the grave secure hidden danger , and what it is as to that event happens very hard averting , yet for the sake of this reason , we will constantly concern the leak patch that the Microsoft Web Site publishd , and  without delay adjust systematically acting the well secure guarantee .
+
+
+
+<br><br>
+<tt>
+To unsubscribe, send mail to lojban-unsubscribe@onelist.com</tt>
+<br><br>
+
+<br>
+
+<!-- |**|begin egp html banner|**| -->
+
+<table border=0 cellspacing=0 cellpadding=2>
+<tr bgcolor=#FFFFCC>
+<td align=center><font size="-1" color=#003399><b>Yahoo! Groups Sponsor</b></font></td>
+</tr>
+<tr bgcolor=#FFFFFF>
+<td align=center width=470><table border=0 cellpadding=0 cellspacing=0> <tr> <td align=center><font face=arial size=-2>ADVERTISEMENT</font><br><a href="http://us.ard.yahoo.com/SIG=129k2k5c4/M=295196.4901138.6071305.3001176/D=groups/S=1706665094:HM/EXP=1088619954/A=2128215/R=0/SIG=10se96mf6/*http://companion.yahoo.com" alt=""><img src="http://us.a1.yimg.com/us.yimg.com/a/ya/yahoo_companion/lrec_companion_043004.gif" alt="click here" width="300" height="250" border="0"></a></td></tr></table> </td>
+</tr>
+<tr><td><img alt="" width=1 height=1 src="http://us.adserver.yahoo.com/l?M=295196.4901138.6071305.3001176/D=groups/S=:HM/A=2128215/rand=445685830"></td></tr>
+</table>
+
+<!-- |**|end egp html banner|**| -->
+
+
+
+<!-- |**|begin egp html banner|**| -->
+
+<br>
+<tt><hr width="500">
+<b>Yahoo! Groups Links</b><br>
+<ul>
+<li>To visit your group on the web, go to:<br><a href="http://groups.yahoo.com/group/lojban/">http://groups.yahoo.com/group/lojban/</a><br>&nbsp;
+<li>To unsubscribe from this group, send an email to:<br><a href="mailto:lojban-unsubscribe@yahoogroups.com?subject=Unsubscribe">lojban-unsubscribe@yahoogroups.com</a><br>&nbsp;
+<li>Your use of Yahoo! Groups is subject to the <a href="http://docs.yahoo.com/info/terms/">Yahoo! Terms of Service</a>.
+</ul>
+</tt>
+</br>
+
+<!-- |**|end egp html banner|**| -->
 
 
 </body>
