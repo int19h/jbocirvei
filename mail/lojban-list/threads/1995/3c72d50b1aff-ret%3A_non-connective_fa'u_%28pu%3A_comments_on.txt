@@ -1,0 +1,22 @@
+# mail/lojban-list thread 3c72d50b1aff-ret%3A_non-connective_fa'u_%28pu%3A_comments_on | root f7dfd8ad330abd30d531021a20365b49eaac879a@no-message-id.invalid | 1 messages | rendered by jbocirvei mail-v1
+
+=== 1 | 1995-12-08T21:37:15Z | Goran Topic <topic@STUDENT.MATH.HR> | c928e052d92e63d7fb3f3216c622cb832d64bb81@no-message-id.invalid | mail/lojban-list/cur/818458635.8ec0d7dff58072c3.lojban:2,S
+> > 10. 14.16. (a) Is there a non-connective version of fahu? As in
+> > "the two men love their respective spouses".
+>
+> Unfortunately no. Since I have no use for {le'i} and co., I might
+> start using them for that function.
+
+pa'aku? as in
+
+    le re nanmu pa'a prami le ri speni
+
+co'o mi'e. goran. noi smadi po'o
+
+--
+GAT/CS/O d?@ H s:-@ !g p1(2)@ !au(0?) a- w+(+++) (!)v-@(+) C++(++++)
+UU/H(+) P++>++++ L(>+) !3 E>++ N+ K(+) W--(---) M-- !V(--) -po+ Y(+)
+t+@(+++) !5 !j R+@ G-@(J++) tv+(++) b++@ D++ B? e+* u@ h!$ f?(+) r--
+!n(+@) y+. GeekCode v2.1, modifications left to reader to puzzle out
+
+
