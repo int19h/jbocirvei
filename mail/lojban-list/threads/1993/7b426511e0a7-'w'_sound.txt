@@ -1,0 +1,8 @@
+# mail/lojban-list thread 7b426511e0a7-'w'_sound | root 8b1f5d4c4aafdc857adc8a227558c064e65bb4ae@no-message-id.invalid | 1 messages | rendered by jbocirvei mail-v1
+
+=== 1 | 1993-07-28T21:49:31Z | juxlus <pfly@NYX.CS.DU.EDU> | 2htefbtn9k.a.jr.f10klb@chain.digitalkingdom.org | mail/lojban-list/cur/743896171.95b297e2e2b16024.lojban:2,S
+a small question regarding names in lojban.  most names i've seen
+get lojbanized pretty well, but what about a name like wendy?  is
+there some perferred replacement for 'w'?
+
+
