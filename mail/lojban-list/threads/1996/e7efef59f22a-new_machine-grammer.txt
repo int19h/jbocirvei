@@ -1,0 +1,24 @@
+# mail/lojban-list thread e7efef59f22a-new_machine-grammer | root c35835be8c440ff4768908763a378b0723178226@no-message-id.invalid | 1 messages | rendered by jbocirvei mail-v1
+
+=== 1 | 1996-12-17T17:21:07Z | Steven Belknap <sbelknap@UIC.EDU> | c35835be8c440ff4768908763a378b0723178226@no-message-id.invalid | mail/lojban-list/cur/850843267.e7efef59f22aead9.lojban:2,S
+The correct url to ftp the new grammer is:
+
+ftp://ftp.access.digex.net/pub/access/lojbab/machine-grammars/grammar.247
+
+lojbab put an extra < * > in his citation. If you have trouble fetching the
+file directly, retrieve the ftp directory by first invoking:
+
+ftp://ftp.access.digex.net/pub/access/lojbab/machine-grammars/
+
+then picking <grammer.247> from the pick list.
+
+Incidently, the ftp address for the lojban ftp site as given on Veijo's WWW
+lojban page misspells access as acces.
+
+mi'e stivn
+
+Steven Belknap, M.D.
+Assistant Professor of Clinical Pharmacology and Medicine
+University of Illinois College of Medicine at Peoria
+
+
