@@ -1,4 +1,4 @@
-# mail/lojban-list thread 9668ea2e83cc-lojban_dialectology | root ecccc82a3621f8957d9fe68c0531add838bfcb3b@no-message-id.invalid | 6 messages | rendered by jbocirvei mail-v1
+# mail/lojban-list thread 9668ea2e83cc-lojban_dialectology | root ecccc82a3621f8957d9fe68c0531add838bfcb3b@no-message-id.invalid | 7 messages | rendered by jbocirvei mail-v1
 
 === 1 | 1995-12-08T21:37:15Z | ucleaar <ucleaar@UCL.AC.UK> | 22db5f633e42c25e82d7a9f7cdf105a8abaca6b7@no-message-id.invalid | mail/lojban-list/cur/818458635.01fa4d9ccaa70d11.lojban:2,S
 We ought to keep track of the various good ideas, mostly thought up
@@ -232,5 +232,14 @@ University of Illinois College of Medicine at Peoria
 email: sbelknap@uic.edu
 Voice: 309/671-3403
 Fax:   309/671-8413
+
+
+
+=== 7 | 1995-12-08T21:37:15Z | Don Wiggins <dwiggins@BFSEC.BT.CO.UK> | ecccc82a3621f8957d9fe68c0531add838bfcb3b@no-message-id.invalid | mail/lojban-list/cur/818458635.9668ea2e83ccebc7.lojban:2,S
+> .i ti dargu la bebylan
+
+.i ti ba'e tadji la bebylan. .ini'ibo noda litru ra .iji'a malgli
+
+co'omi'e dn.
 
 
