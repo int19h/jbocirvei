@@ -1,0 +1,9 @@
+# mail/lojban-list thread d81ccf990d35-html_codes | root 6f52874efb0788c779828999288d9349c7f11e8b@no-message-id.invalid | 1 messages | rendered by jbocirvei mail-v1
+
+=== 1 | 1996-12-17T17:21:07Z | Logical Language Group <lojbab@ACCESS.DIGEX.NET> | 6f52874efb0788c779828999288d9349c7f11e8b@no-message-id.invalid | mail/lojban-list/cur/850843267.d81ccf990d352d03.lojban:2,S
+For Chris or whoever asked, the "cx" and "lx" codes are used to mark index
+entries, which I believe are hidden in the displayed HTML.
+
+lojbab
+
+
