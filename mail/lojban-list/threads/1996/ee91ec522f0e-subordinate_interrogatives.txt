@@ -1,0 +1,16 @@
+# mail/lojban-list thread ee91ec522f0e-subordinate_interrogatives | root e6c8129cda9279028dd3cda5bde827c38b7fb690@no-message-id.invalid | 1 messages | rendered by jbocirvei mail-v1
+
+=== 1 | 1996-11-22T14:38:55Z | And Rosta <a.rosta@UCLAN.AC.UK> | 1fac298de55be87ba3a4a65fedd8ba783d65f30f@no-message-id.invalid | mail/lojban-list/cur/848673535.0bdb213cf393cdf0.lojban:2,S
+> From:          Chris A Bogart <cbogart@INDRA.COM>
+> > {....kuau da cardinality loi ge plise gi citka be fa mi}
+> >
+> > (where {loi} is my new way of spelling everyone else's {lo'i}/{lohi}).
+>
+> OK, I'll bite: what's your new way of spelling everyone else's
+> {loi}?
+>
+> co'o mi'e kris.
+
+{loy}
+
+
