@@ -1,0 +1,24 @@
+# mail/lojban-list thread 2f9021ac4d4b-tech%3A_magnitude | root 736350c5ebde90df41fced1d61d9e4ec43f7f80b@no-message-id.invalid | 1 messages | rendered by jbocirvei mail-v1
+
+=== 1 | 1996-11-01T14:28:09Z | Don Wiggins <dwiggins@BFSEC.BT.CO.UK> | 736350c5ebde90df41fced1d61d9e4ec43f7f80b@no-message-id.invalid | mail/lojban-list/cur/846858489.2f9021ac4d4b7f18.lojban:2,S
+> I have been kicking around the idea of a new cmavo of selma'o KI,
+> "ki'i'i" temporarily.  A sumti tcita involving this will be a specific
+> magnitude, thus:
+> 1)      mi dansu le bisli ve'a ki'i'i lo mitre be li pa
+>         I dance on the ice over-interval one-meter.
+> 2)      mi pu klama le zarci zi ki'i'i lo mentu be li reno
+>         I went to the store merely 20 minutes ago.
+> 3)      mi pu klama le zarci zu ki'i'i lo mentu be li reno
+>         I went to the store fully 20 minutes ago.
+
+For resolving the magnitude problem, I think it possible without any new
+grammar.
+
+So, for "I went to the store 20 minutes ago."  I would use:
+       .i mi klama lo zarci calo puzi mentu beli reno
+          I went to the store simultaneous with the nearest-in-the-past
+          minutes of 20.
+
+ni'o co'omi'e dn.
+
+
