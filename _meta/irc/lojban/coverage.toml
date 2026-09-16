@@ -1,0 +1,18 @@
+# What this channel's projection covers (SPEC.md 3.4).
+# Written by jbocirvei build; do not edit.
+
+channel = "lojban"
+files = 7956
+range_files = 3
+first_day = "2000-05-26"
+last_day = "2026-09-12"
+days_recorded_absent = 1268
+fetched_on = "2026-09-16"
+
+[archive]
+directories_the_server_listed = 288
+directories_walked = 288
+index_walk_complete = true
+files_the_server_listed = 7863
+files_archived = 7863
+files_listed_but_not_archived = 0

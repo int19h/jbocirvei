@@ -1,0 +1,17 @@
+# What this channel's projection covers (SPEC.md 3.4).
+# Written by jbocirvei build; do not edit.
+
+channel = "jbosnu"
+files = 4401
+first_day = "2004-04-04"
+last_day = "2026-08-01"
+days_recorded_absent = 3754
+fetched_on = "2026-09-16"
+
+[archive]
+directories_the_server_listed = 254
+directories_walked = 254
+index_walk_complete = true
+files_the_server_listed = 4386
+files_archived = 4386
+files_listed_but_not_archived = 0
