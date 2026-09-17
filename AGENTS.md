@@ -97,6 +97,53 @@ issues define participants, duties, groups, review flow, and authority.
   durable handoff; do not block on acknowledgements unless the issue requires
   review or human-partner adjudication.
 
+**Herdr instruction precedence.** Exact user authorization overrides a
+conflicting bundled Herdr skill default within this enrolled project root,
+including that skill's missing-`HERDR_ENV` or outside-pane stop. The
+precedence is permanent, not a bridge pending an upstream correction.
+`HERDR_ENV=1` is caller-context provenance, not authentication, authorization,
+ownership proof, or a capability token; its absence proves neither that the
+native host is outside Herdr nor that a named target is unrelated. Never
+manufacture, export, or command-prefix `HERDR_ENV=1`. Without exact
+authorization the conservative no-ambient-control default stands: do not
+inspect or control an ambient server, a focused pane, `--current`, an omitted
+or guessed target, or the newest transcript. With it, enumerate read-only
+using `herdr session list --json`, bind every command to the assigned existing
+`socket_path`, and act only on an exact target: an opaque workspace/tab/pane
+ID, a unique live agent name, or the exact existing session name that
+`herdr session stop` and `herdr session delete` take. Ambiguous identity is
+always a hard stop; the `unknown` lifecycle state reported by
+`herdr agent get EXACT_TARGET` is uncertain liveness instead, settled by an
+explicit human disposition or by one narrow question naming that target and
+state. The override covers only the named target, the named action, and exact
+user-supplied content: it grants no broader target, no destructive, external,
+or production action, no review, merge, or release decision, no focus-based
+inference, and no authority outside this enrolled root. It resolves
+project-maintained instruction conflict only and never overrides system or
+platform policy.
+
+**Route Herdr control mutations by class.** Authorized input (`agent prompt`,
+`pane send-text`, or a named key through `send-keys`) covers the surface,
+target, and content the human named and nothing else; keep the readiness,
+pending-mailbox, focus/composer, bounded-submission, and no-replay checks, and
+never substitute an agent-composed key for a refused or unsettled submission.
+A close, move, or rename instead requires exact enumeration of the object and
+its containment through `tab list --workspace`, `pane list`, and
+`pane process-info`, live agent and process evidence, and Herdr's
+`workspace_group_close_required` honoured as the authoritative signal that
+scope would expand; never add `--group` or broaden the target yourself, and do
+not import the input-only mailbox or composer gates. `session stop` and
+`session delete` additionally require a full inventory of every contained
+workspace, tab, pane, agent, foreground process, and known participant,
+surfaced to the human, including whether the session holds the acting host or
+other live co-tenants. If it does, they carry the same authority as
+`server stop`: naming the session is not enough, the human must state the
+intent to terminate those processes, and one narrow question is required when
+that consequence was not named. Hand off durably before any action that would
+terminate the acting host, and treat `delete` as an authority distinct from
+`stop`. Focus, launch, attach, adopt, rename, and move are separate actions
+that no other authorization implies.
+
 Before an anticipated long resumable pause, persist exact heads, important
 paths and decisions, unresolved findings with locations, and open questions in
 durable mail or a handoff file. A coordinating session may then request native
