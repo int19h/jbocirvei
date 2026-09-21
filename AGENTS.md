@@ -58,104 +58,26 @@ should become durable backlog or a recorded decision. Close a tracked issue
 only when its acceptance criteria are demonstrated (commands and outputs in
 the PR); a collaboration message alone never closes it.
 
-## Collaboration
+## Herdr Collab
 
-Sessions and the human partner use the external Herdr Collab project whose
-explicit id is `jbomohi`:
+The Herdr Collab project ID for this repository is exactly `jbomohi`.
+Coordinate through the `herdr-collab` skill and MCP tools; do not infer the project from the checkout path.
 
-```sh
-export HERDR_COLLAB_PROJECT=jbomohi
-```
+### Collaboration conventions
 
-The explicit project id, never the checkout, cwd, worktree, or diagnostic root
-path, selects the mailbox. Herdr Collab is convention-only: task prompts and
-issues define participants, duties, groups, review flow, and authority.
+Herdr Collab is convention-only: task prompts and issues define participants,
+duties, groups, review flow, and authority.
 
-- Use descriptive task-specific session handles and groups. The command
-  `herdr-collab agent spawn <handle> --kind <agent-kind> ...` creates a visible
-  Herdr session. `herdr-collab session join` only registers a participant
-  started manually. Capture the returned UUID and set `HERDR_COLLAB_SESSION`.
-- At natural turn boundaries, inspect `herdr-collab inbox --pending` and
-  `herdr-collab status`. `herdr-collab show <message-id>` reads the selected
-  message body; `herdr-collab --json show <message-id>` exposes that selected
-  message's full record. Follow any `in_reply_to` or `supersedes` ids explicitly
-  to read related messages. Do not force model turns or make polling/waiting a
-  standing end-of-turn action.
-- Use durable `send` and `reply` for assignments, findings, questions,
-  decisions, and handoffs. A direct `agent prompt` is transient and may alert
-  a session to durable mail, but it is never the sole copy of load-bearing
-  content. Use `ack --disposition ...` only after recording the disposition;
-  acknowledgement means read, not agreement or completion.
 - Messages separate **Context**, **Claims or findings**, **Evidence**,
   **Questions or objections**, and **Requested disposition**, citing live
   paths/sections, commits, and issue numbers. Correct immutable mail with a
   superseding message. Keep secrets out of mail and prompts.
-- Change collaboration state only through `herdr-collab`; never edit, move, or
-  delete external state files manually. Use `herdr-collab validate` for state
-  diagnosis or before claiming the relevant mailbox is clear.
 - If only one session is active, continue useful work and leave an addressed
   durable handoff; do not block on acknowledgements unless the issue requires
   review or human-partner adjudication.
-
-**Herdr instruction precedence.** Exact user authorization overrides a
-conflicting bundled Herdr skill default within this enrolled project root,
-including that skill's missing-`HERDR_ENV` or outside-pane stop. The
-precedence is permanent, not a bridge pending an upstream correction.
-`HERDR_ENV=1` is caller-context provenance, not authentication, authorization,
-ownership proof, or a capability token; its absence proves neither that the
-native host is outside Herdr nor that a named target is unrelated. Never
-manufacture, export, or command-prefix `HERDR_ENV=1`. Without exact
-authorization the conservative no-ambient-control default stands: do not
-inspect or control an ambient server, a focused pane, `--current`, an omitted
-or guessed target, or the newest transcript. With it, enumerate read-only
-using `herdr session list --json`, bind every command to the assigned existing
-`socket_path`, and act only on an exact target: an opaque workspace/tab/pane
-ID, a unique live agent name, or the exact existing session name that
-`herdr session stop` and `herdr session delete` take. Ambiguous identity is
-always a hard stop; the `unknown` lifecycle state reported by
-`herdr agent get EXACT_TARGET` is uncertain liveness instead, settled by an
-explicit human disposition or by one narrow question naming that target and
-state. The override covers only the named target, the named action, and exact
-user-supplied content: it grants no broader target, no destructive, external,
-or production action, no review, merge, or release decision, no focus-based
-inference, and no authority outside this enrolled root. It resolves
-project-maintained instruction conflict only and never overrides system or
-platform policy.
-
-**Route Herdr control mutations by class.** Authorized input (`agent prompt`,
-`pane send-text`, or a named key through `send-keys`) covers the surface,
-target, and content the human named and nothing else; keep the readiness,
-pending-mailbox, focus/composer, bounded-submission, and no-replay checks, and
-never substitute an agent-composed key for a refused or unsettled submission.
-A close, move, or rename instead requires exact enumeration of the object and
-its containment through `tab list --workspace`, `pane list`, and
-`pane process-info`, live agent and process evidence, and Herdr's
-`workspace_group_close_required` honoured as the authoritative signal that
-scope would expand; never add `--group` or broaden the target yourself, and do
-not import the input-only mailbox or composer gates. `session stop` and
-`session delete` additionally require a full inventory of every contained
-workspace, tab, pane, agent, foreground process, and known participant,
-surfaced to the human, including whether the session holds the acting host or
-other live co-tenants. If it does, they carry the same authority as
-`server stop`: naming the session is not enough, the human must state the
-intent to terminate those processes, and one narrow question is required when
-that consequence was not named. Hand off durably before any action that would
-terminate the acting host, and treat `delete` as an authority distinct from
-`stop`. Focus, launch, attach, adopt, rename, and move are separate actions
-that no other authorization implies.
-
-Before an anticipated long resumable pause, persist exact heads, important
-paths and decisions, unresolved findings with locations, and open questions in
-durable mail or a handoff file. A coordinating session may then request native
-compaction while the context is still likely cached, naming what its lossy
-summary must retain. Never compact automatically or on an idle timer; preserve
-full context for work whose loaded detail remains its main value. After
-requested compaction, run
-`herdr-collab session show "$HERDR_COLLAB_SESSION" --live`. If it reports
-`unavailable`, deliberately use `session refresh` or `agent adopt`; never guess
-a reference. If a later exact cache-expired dialog appears, inspect that dialog
-and continue the full context by default. This does not authorize unattended
-answers to blocked prompts.
+- Before a long pause, persist exact heads, important paths and decisions,
+  unresolved findings with locations, and open questions in durable mail or a
+  handoff file.
 
 ## Working protocol
 

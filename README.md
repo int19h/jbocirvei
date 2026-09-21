@@ -14,6 +14,6 @@ history), materialised at `JBOMOHI_CORPUS` (default `~/lojban/corpus`) as a git
 worktree.
 
 - Start here: `AGENTS.md` (charter and working protocol), then `doc/SPEC.md`.
-- Multi-session coordination: external Herdr Collab project `jbomohi`; see
-  `AGENTS.md`.
+- Multi-session coordination: Herdr Collab project `jbomohi`; see the
+  `herdr-collab` skill and the stub in `AGENTS.md`.
 - Research and evidence: `doc/research/`.
