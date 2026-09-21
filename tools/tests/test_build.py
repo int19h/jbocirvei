@@ -206,10 +206,11 @@ def test_update_appends_only_new_source_ids_and_refreshes(tmp_path: Path) -> Non
     assert report is not None
     assert report.events == 1
     assert int(git(config.corpus, "rev-list", "--count", "HEAD")) == before + 2
-    assert (
-        update_corpus(config, {"wiki": lambda: iter((first_event, second_event))})
-        is None
-    )
+    # A run with nothing to do still reports, rather than leaving the reader to
+    # infer from a short message what happened to the instruction files.
+    quiet = update_corpus(config, {"wiki": lambda: iter((first_event, second_event))})
+    assert (quiet.events, quiet.refreshed, quiet.tagged) == (0, False, False)
+    assert quiet.events_by_source == {}
 
 
 def test_update_folds_final_stream_metadata_into_refresh(tmp_path: Path) -> None:
@@ -718,3 +719,138 @@ def test_verify_reads_lines_the_way_the_corpus_writes_them() -> None:
 
     assert _lf_lines("one\ntwo\n") == ["one", "two"]
     assert _lf_lines("") == []
+
+
+def test_update_scans_the_whole_corpus_a_bounded_number_of_times(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Appending N events must not cost N scans of the corpus.
+
+    `commit_event` proves the worktree clean and rebuilds the index from HEAD
+    before each event, both O(files in the corpus). Appending 3,300 IRC days to
+    a 286,212-file corpus therefore ran at seven seconds a commit — six hours
+    of work the events themselves do in milliseconds. Counting the scans is the
+    stable way to assert this; timing it would be flaky.
+    """
+
+    from jbomohi_tools import git as git_module
+
+    config, _commit = tools_repo(tmp_path / "repo")
+    base = event("rev=1", 1, "wiki/main/One.wiki")
+    build_corpus(config, {"wiki": lambda: iter((base,))})
+    appended = [
+        event(f"rev={index}", index, f"wiki/main/Page{index}.wiki")
+        for index in range(2, 22)
+    ]
+
+    scans = {"status": 0, "read-tree": 0}
+
+    def counted(original):
+        def wrapper(corpus, args, *rest, **keywords):
+            if args and args[0] in scans:
+                scans[args[0]] += 1
+            return original(corpus, args, *rest, **keywords)
+
+        return wrapper
+
+    monkeypatch.setattr(git_module, "run_git", counted(git_module.run_git))
+    monkeypatch.setattr(git_module, "git_output", counted(git_module.git_output))
+
+    report = update_corpus(config, {"wiki": lambda: iter([base, *appended])})
+
+    assert report is not None
+    assert report.events == len(appended)
+    # The exact constant is not the point; that it does not grow with the
+    # number of events is. The old path did one of each per event.
+    assert scans["status"] < len(appended)
+    assert scans["read-tree"] < len(appended)
+    assert scans["status"] <= 6
+    assert scans["read-tree"] <= 6
+
+
+def test_update_refreshes_the_instruction_files_with_no_new_events(
+    tmp_path: Path,
+) -> None:
+    """A template change must be able to reach main on a quiet day.
+
+    `update` returned as soon as it found no new event, and the instruction
+    files are written only by the refresh commit. So a template correction
+    could reach main only as a side effect of some source having new events;
+    with nothing to append it reported success and did nothing. A refresh is
+    the same snapshot re-rendered, so it reuses the snapshot name and mints no
+    tag.
+    """
+
+    config, _commit = tools_repo(tmp_path / "repo")
+    base = event("rev=1", 1, "wiki/main/One.wiki")
+    build_corpus(config, {"wiki": lambda: iter((base,))})
+    before = git(config.corpus, "rev-parse", "HEAD")
+    tags_before = git(config.corpus, "tag", "--list")
+
+    template = config.repo_root / "tools/templates/main/AGENTS.md"
+    template.write_text(
+        template.read_text() + "\nA correction made on the tools branch.\n"
+    )
+    commit_fixture(config.repo_root, "templates: a correction")
+
+    report = update_corpus(config, {"wiki": lambda: iter((base,))})
+
+    assert report is not None
+    assert report.events == 0
+    assert report.head != before
+    assert (
+        "A correction made on the tools branch."
+        in (config.corpus / "AGENTS.md").read_text()
+    )
+    # The same snapshot, re-rendered: no new tag, and the refresh names the
+    # commit it was applied on top of rather than reusing the snapshot's id.
+    assert git(config.corpus, "tag", "--list") == tags_before
+    assert f"Source-Id: refresh@{before}" in git(
+        config.corpus, "log", "-1", "--format=%B"
+    )
+    # Its date is the corpus tip's, not the clock.
+    assert git(config.corpus, "log", "-1", "--format=%cI") == git(
+        config.corpus, "log", "-1", "--format=%cI", before
+    )
+
+    quiet = update_corpus(config, {"wiki": lambda: iter((base,))})
+    assert (quiet.events, quiet.refreshed, quiet.tagged) == (0, False, False)
+    assert quiet.head == report.head
+
+
+def test_update_refreshes_meta_for_a_source_with_no_new_events(tmp_path: Path) -> None:
+    """A projector improvement must reach a source that appended nothing.
+
+    The refresh folded `_meta` only for sources with new events, so a source
+    whose every event was already in the corpus kept whatever its metadata
+    looked like when it last gained one. That is how `_meta/irc/lojban/
+    coverage.toml` stayed two releases behind while the channels that gained
+    days were rewritten: the channel was complete, so nothing about it was new.
+
+    I predicted the opposite before that run — that the tail's events would
+    carry every channel's coverage — which is why this test exists.
+    """
+
+    config, _commit = tools_repo(tmp_path / "repo")
+    first = event("rev=1", 1, "wiki/main/One.wiki")
+    final = event("rev=2", 2, "wiki/main/Two.wiki")
+    stale = replace(
+        final,
+        changes={**final.changes, "_meta/wiki/index.csv": "path\nold\n"},
+    )
+    build_corpus(config, {"wiki": lambda: iter((first, stale))})
+    assert (config.corpus / "_meta/wiki/index.csv").read_text() == "path\nold\n"
+
+    # The same events, rendered by an improved projector: nothing to append.
+    improved = replace(
+        final,
+        changes={**final.changes, "_meta/wiki/index.csv": "path,note\nnew,rendered\n"},
+    )
+    report = update_corpus(config, {"wiki": lambda: iter((first, improved))})
+
+    assert report.events == 0
+    assert report.refreshed is True
+    assert report.tagged is False
+    assert (config.corpus / "_meta/wiki/index.csv").read_text() == (
+        "path,note\nnew,rendered\n"
+    )

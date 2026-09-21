@@ -9,8 +9,9 @@ import re
 import stat
 import tempfile
 import tomllib
+from collections import Counter
 from collections.abc import Callable, Iterable, Iterator, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time
 from pathlib import Path
 
@@ -36,6 +37,7 @@ from .render import (
     commit_root,
     coverage_table,
     layout_summary,
+    render_main,
 )
 
 EventFactory = Callable[[], Iterable[Event]]
@@ -80,6 +82,11 @@ class BuildReport:
     events: int
     snapshot: str
     coverage: str
+    # What an update did, so that it can say so rather than leave the reader to
+    # infer it. A build sets neither: it writes everything by definition.
+    events_by_source: Mapping[str, int] = field(default_factory=dict)
+    refreshed: bool = False
+    tagged: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -743,11 +750,23 @@ def _verify_mail(corpus: Path) -> int:
     return mail_messages
 
 
+# How many events an update commits before it moves HEAD. Small enough that a
+# kill costs seconds of work, large enough that the ref update is noise.
+UPDATE_FLUSH_EVENTS = 256
+
+
 def update_corpus(
     config: Config,
     sources: Mapping[str, EventFactory],
-) -> BuildReport | None:
-    """Append source IDs not already present, then refresh and snapshot."""
+) -> BuildReport:
+    """Append source IDs not already present, then refresh and snapshot.
+
+    Always returns a report, including for a run that changes nothing: an
+    update that says only "no new source events" leaves the reader to infer
+    what happened to the instruction files and the tag, and inferring success
+    from a short message is how a refresh that could not have happened was
+    nearly accepted as one.
+    """
 
     tools_commit = require_clean_tools(config.repo_root)
     status, _created = init_corpus(config)
@@ -758,53 +777,169 @@ def update_corpus(
         config.corpus, ["status", "--porcelain=v1", "--untracked-files=all"]
     )
     if dirty:
-        raise CorpusError("corpus working tree is dirty; refusing update")
+        raise CorpusError(
+            "corpus working tree is dirty; refusing update. An update that was "
+            "killed between flushes leaves the files of up to "
+            f"{UPDATE_FLUSH_EVENTS} events that were never committed: if that "
+            "is what this is, `git -C <corpus> reset --hard HEAD` discards "
+            "them and the events are appended again on the next run. Check "
+            "first that none of it is contributed work."
+        )
     known = existing_source_ids(config.corpus)
     event_count = 0
+    by_source: Counter[str] = Counter()
     last_time: datetime | None = None
     source_meta: dict[str, dict[str, str | bytes]] = {}
-    sources_with_new_events: set[str] = set()
     # Every event is tallied, not only the new ones: the coverage table
     # describes the corpus, and an update that adds three messages has not made
     # the other hundred thousand stop existing.
     tallies: dict[str, SourceTally] = {}
-    for source_name, event in merge_named_events(sources, meta_sink=source_meta):
-        tallies.setdefault(source_name, SourceTally()).record(event.source_time)
-        if (event.source, event.source_id) in known:
-            continue
-        commit_event(event, config.corpus)
-        sources_with_new_events.add(source_name)
-        known.add((event.source, event.source_id))
-        event_count += 1
-        last_time = event.source_time
-    if last_time is None:
-        return None
-    snapshot = _snapshot_name(last_time)
+    # One session for the whole append. Committing each event through
+    # `commit_event` proved the worktree clean and rebuilt the index from HEAD
+    # first, so every appended day cost a scan of the entire corpus: appending
+    # 3,300 IRC days to a 286,212-file corpus ran at 7 seconds a commit, six
+    # hours for work the event itself does in milliseconds.
+    with BuildCommitSession(config.corpus) as live:
+        for source_name, event in merge_named_events(sources, meta_sink=source_meta):
+            tallies.setdefault(source_name, SourceTally()).record(event.source_time)
+            if (event.source, event.source_id) in known:
+                continue
+            live.commit(event)
+            known.add((event.source, event.source_id))
+            event_count += 1
+            by_source[source_name] += 1
+            last_time = event.source_time
+            if event_count % UPDATE_FLUSH_EVENTS == 0:
+                # A session that moved HEAD only at the end would lose the
+                # whole append to a kill. Flushing keeps an interrupted update
+                # resumable, which is how a six-hour run was stopped without
+                # losing the days it had already written.
+                live.flush()
+    refresh_only = last_time is None
+    if refresh_only:
+        # No source has a new event, and until now the function returned here.
+        # That made a template change unable to reach main at all on a quiet
+        # day: the instruction files are rendered only by a refresh commit, and
+        # a refresh commit only happened as a side effect of appending events.
+        # A refresh is not a new snapshot of the record, it is the same
+        # snapshot re-rendered, so it reuses the snapshot name and mints no tag.
+        last_time = _tip_time(config.corpus)
+        snapshot = _current_snapshot(config.corpus, last_time)
+    else:
+        snapshot = _snapshot_name(last_time)
+    assert last_time is not None
     coverage = coverage_table(config.corpus, tallies)
     refresh_changes = _archive_manifest_changes(config.archive)
-    for source_name in sorted(sources_with_new_events):
+    # Every source's metadata, not only that of sources with new events. A
+    # source that appended nothing still has `_meta` files rendered by the
+    # current projector, and folding only the noisy sources meant a quiet one
+    # kept whatever shape it had when it last gained an event — #52's defect
+    # one level down. Git records a change only where the content differs, so
+    # the cost is a larger diff exactly when there is something to record.
+    for source_name in sorted(source_meta):
         for path, value in source_meta.get(source_name, {}).items():
             previous = refresh_changes.get(path)
             if previous is not None and previous != value:
                 raise CorpusError(f"refresh metadata collision at {path}")
             refresh_changes[path] = value
+    context = RenderContext(
+        snapshot=snapshot,
+        tools_commit=tools_commit,
+        layout_summary=layout_summary(config.corpus),
+        coverage_tables=coverage,
+    )
+    if refresh_only:
+        # Nothing forces a refresh-only commit to have anything to say. An
+        # empty one would still be a legitimate commit (SPEC.md 3.3 rule 4b),
+        # but it would claim a refresh happened when nothing was re-rendered.
+        pending = dict(render_main(config.repo_root, context))
+        pending.update(refresh_changes)
+        if not _differs_from_worktree(config.corpus, pending):
+            return BuildReport(
+                head=git_output(config.corpus, ["rev-parse", "HEAD"]),
+                commits=int(git_output(config.corpus, ["rev-list", "--count", "HEAD"])),
+                events=0,
+                snapshot=snapshot,
+                coverage=coverage,
+                events_by_source={},
+                refreshed=False,
+                tagged=False,
+            )
+        # The parent names this refresh uniquely: every refresh has a distinct
+        # one, and "the refresh applied on top of <commit>" is what a citation
+        # of it means. The snapshot-derived id belongs to the update that
+        # minted the snapshot and cannot be reused here.
+        refresh_id = "refresh@" + git_output(config.corpus, ["rev-parse", "HEAD"])
+    else:
+        refresh_id = "refresh@" + snapshot.removeprefix("snapshot/")
     commit_instruction_refresh(
         config.repo_root,
         config.corpus,
         source_time=last_time,
-        source_id="refresh@" + snapshot.removeprefix("snapshot/"),
-        context=RenderContext(
-            snapshot=snapshot,
-            tools_commit=tools_commit,
-            layout_summary=layout_summary(config.corpus),
-            coverage_tables=coverage,
-        ),
+        source_id=refresh_id,
+        context=context,
         extra_changes=refresh_changes,
     )
     head = git_output(config.corpus, ["rev-parse", "HEAD"])
-    _tag_snapshot(config.corpus, head, snapshot, last_time, coverage)
+    if not refresh_only:
+        _tag_snapshot(config.corpus, head, snapshot, last_time, coverage)
     commits = int(git_output(config.corpus, ["rev-list", "--count", "HEAD"]))
-    return BuildReport(head, commits, event_count, snapshot, coverage)
+    return BuildReport(
+        head=head,
+        commits=commits,
+        events=event_count,
+        snapshot=snapshot,
+        coverage=coverage,
+        events_by_source=dict(sorted(by_source.items())),
+        refreshed=True,
+        tagged=not refresh_only,
+    )
+
+
+def _tip_time(corpus: Path) -> datetime:
+    """The corpus tip's own committer time, which is its newest event's time.
+
+    A refresh has no source time of its own, and SPEC.md 2.4 forbids reading
+    the clock into committed content. The tip's time is a pure function of the
+    corpus, so two refreshes of the same corpus produce the same date.
+    """
+
+    return datetime.fromisoformat(git_output(corpus, ["log", "-1", "--format=%cI"]))
+
+
+def _current_snapshot(corpus: Path, tip_time: datetime) -> str:
+    """The snapshot this corpus is already published as.
+
+    The tag is the authority; the name derived from the tip's time is the
+    fallback for a corpus that has none, and agrees with the tag whenever the
+    tip is the commit the tag was minted for.
+    """
+
+    described = run_git(
+        corpus,
+        ["describe", "--tags", "--abbrev=0", "--match", "snapshot/*", "HEAD"],
+        check=False,
+    )
+    name = described.stdout.strip()
+    return name if described.returncode == 0 and name else _snapshot_name(tip_time)
+
+
+def _differs_from_worktree(corpus: Path, changes: Mapping[str, str | bytes]) -> bool:
+    """Whether any rendered file would actually change.
+
+    The corpus worktree is proven clean before an update runs, so it is HEAD's
+    content and can be read directly instead of through `git show`.
+    """
+
+    for path, value in changes.items():
+        data = value.encode("utf-8") if isinstance(value, str) else value
+        target = corpus / path
+        try:
+            if target.read_bytes() != data:
+                return True
+        except OSError:
+            return True
+    return False
 
 
 def verify_corpus(corpus: Path) -> VerifyReport:
