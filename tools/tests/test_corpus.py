@@ -18,6 +18,17 @@ WORKSPACE = HERE.parents[2]
 TEMPLATES = WORKSPACE / "tools" / "templates" / "main"
 
 
+def utc_z(value: str) -> str:
+    """Spell a zero UTC offset as `Z`, whichever form git printed.
+
+    For `%aI`, `%cI` and `--date=iso-strict`, some git versions print a zero
+    offset as `Z` and others as `+00:00`. Both are the same ISO 8601 instant,
+    so the tests accept either and still pin the date and the zero offset.
+    """
+
+    return value[: -len("+00:00")] + "Z" if value.endswith("+00:00") else value
+
+
 def run(cwd: Path, *args: str, env: dict[str, str] | None = None) -> str:
     actual_env = dict(os.environ)
     if env:
@@ -121,10 +132,10 @@ def test_clean_clone_gets_one_rendered_epoch_root(tmp_path: Path) -> None:
 
     status = corpus_status(config.corpus)
     assert status == corpus_status(config.corpus)
-    assert git(config.corpus, "show", "-s", "--format=%aI", root) == (
+    assert utc_z(git(config.corpus, "show", "-s", "--format=%aI", root)) == (
         "1970-01-01T00:00:00Z"
     )
-    assert git(config.corpus, "show", "-s", "--format=%cI", root) == (
+    assert utc_z(git(config.corpus, "show", "-s", "--format=%cI", root)) == (
         "1970-01-01T00:00:00Z"
     )
     assert (
@@ -312,7 +323,10 @@ def test_instruction_refresh_is_one_source_event(tmp_path: Path) -> None:
     assert refreshed != root
     # The build left the root and its tip refresh; this adds a third commit.
     assert git(config.corpus, "rev-list", "--count", "HEAD") == "3"
-    assert git(config.corpus, "show", "-s", "--format=%aI") == "2020-01-02T03:04:05Z"
+    assert (
+        utc_z(git(config.corpus, "show", "-s", "--format=%aI"))
+        == "2020-01-02T03:04:05Z"
+    )
     message = git(config.corpus, "show", "-s", "--format=%B")
     assert "Event: refresh" in message
     assert "Source-Id: refresh@20200102T030405Z" in message
