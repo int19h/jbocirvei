@@ -184,22 +184,54 @@ def _plural(count: int, singular: str, plural: str | None = None) -> str:
     return f"{count:,} {singular if count == 1 else (plural or singular + 's')}"
 
 
-def _gap_reasons(path: Path, most: int = 2) -> tuple[int, list[str]]:
-    """Count the gaps that a source recorded, and find the most common reasons.
+def _gap_counts(path: Path, counts: dict[str, int]) -> int:
+    """Count the rows of one gaps file, and add its reasons to `counts`.
 
     A gap is a source item that the tools did not project into a commit.
     """
 
-    counts: dict[str, int] = {}
     total = 0
     with path.open(encoding="utf-8", newline="") as handle:
         for row in csv.DictReader(handle):
             total += 1
             reason = (row.get("reason") or row.get("cause") or "").strip()
             if reason:
-                counts[reason] = counts.get(reason, 0) + 1
+                # Rank by the kind of gap, not by its data. Some reasons end
+                # with a value, as in `date header unusable: <header>`. The
+                # value makes every row different, so the text before the
+                # first ": " is the key.
+                key = reason.split(": ", 1)[0]
+                counts[key] = counts.get(key, 0) + 1
+    return total
+
+
+def _top_reasons(counts: dict[str, int], most: int = 2) -> list[str]:
+    """Return the most common reasons, with their counts, ready to render.
+
+    If no reason occurs more than once, return none. Then each row has its own
+    reason, for example a quoted date header, and two rows picked from a tie
+    tell the reader nothing. The file path in the note leads to the details.
+    """
+
     ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
-    return total, [f'"{_clip(reason)}" ({count:,})' for reason, count in ranked[:most]]
+    if not ranked or ranked[0][1] < 2:
+        return []
+    return [f'"{_clip(reason)}" ({count:,})' for reason, count in ranked[:most]]
+
+
+def _gap_files(root: Path, source: str, paths: list[Path]) -> str:
+    """Name the gaps files of one source for the notes column.
+
+    Up to three files are named one by one. More files are named by one path
+    pattern and their number, so that the note stays short.
+    """
+
+    names = [f"`_meta/{source}/{path.relative_to(root).as_posix()}`" for path in paths]
+    if len(names) == 1:
+        return names[0]
+    if len(names) <= 3:
+        return ", ".join(names[:-1]) + " and " + names[-1]
+    return f"The {len(names):,} files `_meta/{source}/**/gaps.csv`"
 
 
 def _clip(text: str, width: int = 52) -> str:
@@ -216,17 +248,29 @@ def _notes_for(corpus: Path, source: str) -> list[str]:
 
     notes: list[str] = []
     root = corpus / "_meta" / source
-    gaps = root / "gaps.csv"
-    if gaps.is_file():
-        count, reasons = _gap_reasons(gaps)
-        if count:
-            note = f"`_meta/{source}/gaps.csv` lists {_plural(count, 'gap')}."
-            if reasons:
-                # A five-figure count alone looks like damage. The two most
-                # common reasons tell what kind of absence it is.
-                label = "reason is" if len(reasons) == 1 else "reasons are"
-                note += f" The most common {label} " + " and ".join(reasons) + "."
-            notes.append(note)
+    # Some sources keep one gaps file for each channel or list, one level
+    # deeper: IRC has `_meta/irc/<channel>/gaps.csv`. The table read only the
+    # top-level file, so it told readers that IRC had no gaps, when those
+    # files listed 6,334 missing days (#66).
+    counts: dict[str, int] = {}
+    listed: list[Path] = []
+    total = 0
+    for path in sorted(root.rglob("gaps.csv")):
+        rows = _gap_counts(path, counts)
+        if rows:
+            listed.append(path)
+            total += rows
+    if total:
+        files = _gap_files(root, source, listed)
+        verb = "lists" if len(listed) == 1 else "list"
+        note = f"{files} {verb} {_plural(total, 'gap')}."
+        reasons = _top_reasons(counts)
+        if reasons:
+            # A five-figure count alone looks like damage. The two most
+            # common reasons tell what kind of absence it is.
+            label = "reason is" if len(reasons) == 1 else "reasons are"
+            note += f" The most common {label} " + " and ".join(reasons) + "."
+        notes.append(note)
     incomplete: list[str] = []
     unusable = 0
     unfetched = 0
