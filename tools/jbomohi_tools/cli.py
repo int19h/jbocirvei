@@ -32,6 +32,7 @@ from .build import (
     audit_events,
     build_corpus,
     push_main_ranges,
+    refresh_corpus,
     update_corpus,
     verify_corpus,
 )
@@ -308,6 +309,21 @@ def _update(args: argparse.Namespace, config: Config) -> int:
     return 0
 
 
+def _refresh(args: argparse.Namespace, config: Config) -> int:
+    report = refresh_corpus(config)
+    print(
+        f"refresh: head={report.head} commits={report.commits} "
+        f"snapshot={report.snapshot} "
+        f"instructions={'refreshed' if report.refreshed else 'already current'}"
+    )
+    # Whenever asked, not only after a new commit: a refresh whose push failed
+    # is current locally, and must still be publishable by running it again.
+    if args.push:
+        pushed = push_main_ranges(config.corpus, report.snapshot)
+        print(f"push: main_updates={pushed.main_updates} snapshot={pushed.snapshot}")
+    return 0
+
+
 def _verify(args: argparse.Namespace, config: Config) -> int:
     if args.events:
         audit = audit_events(source_factories(config, args.sources or None))
@@ -392,6 +408,8 @@ def parser() -> argparse.ArgumentParser:
     update = _leaf(commands, "update", _update)
     update.add_argument("sources", nargs="*")
     update.add_argument("--push", action="store_true")
+    refresh = _leaf(commands, "refresh", _refresh)
+    refresh.add_argument("--push", action="store_true")
     verify = _leaf(commands, "verify", _verify)
     verify.add_argument(
         "--events",

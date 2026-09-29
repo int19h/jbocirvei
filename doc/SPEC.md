@@ -335,6 +335,7 @@ jbomohi archive fetch <source> [--since …]  fetch into the archive tier; write
 jbomohi archive verify                      sha256-check every manifest
 jbomohi build [--sources …] [--until DATE]  full deterministic rebuild of main (orphan root; --until is refused until every selected projector accepts the cut-off itself, since a merge-time filter would drop the _meta files that ride each stream's final event — decided 2026-09-14)
 jbomohi update [<source> …]                 append new events; refresh; tag snapshot/<ts> (never moves an existing tag; build, which replaces main by definition, retires and re-creates a snapshot tag that names a commit outside the new history, and the push of a rebuilt main updates such tags with --force only under the same human authorisation as the branch — decided 2026-09-15)
+jbomohi refresh                             re-render the instruction files at the tip from the corpus alone; no archive, no tag
 jbomohi verify                              invariants (§4.4)
 jbomohi cll render <edition>                per-edition rendering (§3.6)
 jbomohi who propose|promote                 attestation helpers (§3.7)
@@ -371,6 +372,27 @@ snapshot name, mints no tag, is dated from the corpus tip's own committer time
 `Source-Id: refresh@<the commit it was applied on top of>`, which is unique by
 construction and is what a citation of that refresh means. The snapshot-derived
 `refresh@<ts>` id stays with the update that minted the snapshot.
+
+**Refresh from the corpus (decided 2026-09-29, #63).** `update` finds that
+nothing is new only by projecting every source, which needs the archive tier
+(including private dumps held on one machine) and the memory of a full
+projection. A template change needs none of that. `jbomohi refresh` renders the
+instruction files at the tip from the corpus and the tools checkout alone. Every
+input of a refresh comes from there, on every path: `build`, `update` and
+`refresh` all read the coverage tallies back from the history after they
+commit, so they render the same table for the same corpus, and an `update` of
+some sources still describes all of them. Each source event is one commit
+whose `Source:` trailer names it (grouped by its first path component) and
+whose committer time is its source time, with a `pre-epoch` event's true date
+taken from `Source-Date:`; `Source: meta` commits and `Event: contributed`
+commits are not counted. The coverage period is computed in UTC years on both
+paths, because the fast-import backend stores commit times in UTC. `refresh`
+writes only the rendered instruction files and `_meta/schema.toml`; it never
+touches `_meta/archive/` or a source's `_meta` files, which remain `update`'s.
+Otherwise it is `update`'s refresh-only path exactly: same snapshot name, no
+tag, tip time, `Source-Id: refresh@<parent>`, and no commit when nothing would
+change. When `update` appends no event and changes no metadata, the two
+commands make the same commit.
 
 ### 4.3 Fetch/project split
 
