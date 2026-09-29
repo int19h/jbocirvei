@@ -1,4 +1,4 @@
-"""Render generated corpus files."""
+"""Render the files that the tools generate for the corpus."""
 
 from .coverage import SourceTally, corpus_tallies, coverage_table, layout_summary
 from .templates import (

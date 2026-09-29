@@ -1,1 +1,1 @@
-"""Identity attestation helpers; implemented in a later milestone."""
+"""Helpers for identity attestations. A later milestone adds them."""

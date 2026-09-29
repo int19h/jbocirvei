@@ -1,4 +1,4 @@
-"""Runtime configuration resolved from the environment."""
+"""Read the runtime configuration from the environment variables."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 class ConfigError(ValueError):
-    """Configuration could not be resolved safely."""
+    """The tools cannot find a safe value for the configuration."""
 
 
 def _repo_root(cwd: Path) -> Path:
@@ -23,7 +23,7 @@ def _repo_root(cwd: Path) -> Path:
     )
     if result.returncode != 0:
         detail = result.stderr.strip() or "not inside a git worktree"
-        raise ConfigError(f"cannot locate the tools checkout: {detail}")
+        raise ConfigError(f"cannot find the tools checkout: {detail}")
     return Path(result.stdout.strip()).resolve()
 
 
@@ -41,7 +41,7 @@ def _require_outside_checkout(path: Path, root: Path, variable: str) -> None:
 
 @dataclass(frozen=True, slots=True)
 class Config:
-    """Paths used by commands that are allowed to write local state."""
+    """The paths for the commands that can write local state."""
 
     repo_root: Path
     corpus: Path

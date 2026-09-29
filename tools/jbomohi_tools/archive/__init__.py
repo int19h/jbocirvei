@@ -1,4 +1,7 @@
-"""Content-addressed raw archive support."""
+"""Support for the raw archive.
+
+The archive stores each object under the hash of its content.
+"""
 
 from .cll import CllFetchError, CllFetchReport
 from .cll import fetch as fetch_cll

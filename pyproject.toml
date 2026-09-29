@@ -23,11 +23,12 @@ default-groups = ["dev"]
 module-root = "tools"
 
 [tool.ruff.lint.isort]
-# Which imports are ours must not depend on where ruff is invoked from. Run
-# from the repository root, ruff finds no `jbomohi_tools` package in its src
-# root and sorts it beside pytest; run from `tools/`, it is first-party and
-# needs its own block, so the same tree is clean from one directory and reports
-# 21 I001 errors from the other. Naming it settles the question everywhere.
+# The set of imports that are ours must not depend on the directory where ruff
+# runs. From the repository root, ruff finds no `jbomohi_tools` package in its
+# src root, so it sorts the package beside pytest. From `tools/`, the package is
+# first-party and needs its own block. So the same tree is clean from one
+# directory and gives 21 I001 errors from the other. This setting names the
+# package, so ruff gives the same result from every directory.
 known-first-party = ["jbomohi_tools"]
 
 [tool.pytest.ini_options]
@@ -35,6 +36,6 @@ testpaths = ["tools/tests"]
 addopts = "-ra"
 
 [tool.jbomohi.dependency-reasons]
-uv-build = "PEP 517 build backend required to install the tools package and CLI with uv."
-pytest = "Test runner required by the M0 acceptance command `uv run pytest`."
-ruff = "Static lint and formatting checks required by the tools-branch CI contract."
+uv-build = "The PEP 517 build backend. uv needs it to install the tools package and the CLI."
+pytest = "The test runner. The M0 acceptance command `uv run pytest` needs it."
+ruff = "Static lint and format checks. The CI contract of the tools branch needs them."

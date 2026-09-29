@@ -1,4 +1,8 @@
-"""Pure projection of archived grammar repository pins."""
+"""Project the archived pins of the grammar repositories as a pure function.
+
+A pin records the commit of one mirror at one fetch. A pure function uses only
+its input and changes nothing else.
+"""
 
 from __future__ import annotations
 
@@ -39,7 +43,7 @@ DUPLICATE_COLUMNS = ("duplicate", "canonical", "relation", "note")
 
 
 class GrammarProjectError(ValueError):
-    """Archived grammar source state cannot be projected unambiguously."""
+    """The archived state of a grammar source has no single clear projection."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -475,7 +479,7 @@ def _manifest_refs(
         raise GrammarProjectError(f"grammar manifest identity mismatch: {source.key}")
     raw_refs = manifest.coverage.get("refs")
     if not isinstance(raw_refs, dict) or source.branch_ref not in raw_refs:
-        raise GrammarProjectError(f"grammar manifest lacks branch ref: {source.key}")
+        raise GrammarProjectError(f"grammar manifest has no branch ref: {source.key}")
     refs = dict(raw_refs)
     obj = object_path(archive, manifest.sha256)
     try:
@@ -542,10 +546,10 @@ def _pins(archive: Path, source: GitGrammar) -> list[GrammarPin]:
     root = archive / "manifests" / "grammars" / "git" / source.key
     manifests = [ArchiveManifest.load(path) for path in sorted(root.glob("*.toml"))]
     if not manifests:
-        raise GrammarProjectError(f"grammar mirror manifest is absent: {source.key}")
+        raise GrammarProjectError(f"grammar mirror manifest is missing: {source.key}")
     mirror = archive / "git" / "grammars" / f"{source.key}.git"
     if mirror.is_symlink() or not mirror.is_dir():
-        raise GrammarProjectError(f"grammar bare mirror is absent: {source.key}")
+        raise GrammarProjectError(f"grammar bare mirror is missing: {source.key}")
     if git_output(mirror, ["rev-parse", "--is-bare-repository"]) != "true":
         raise GrammarProjectError(f"grammar mirror is not bare: {source.key}")
     if git_output(mirror, ["remote", "get-url", "origin"]) != source.url:
@@ -601,7 +605,7 @@ def _pins(archive: Path, source: GitGrammar) -> list[GrammarPin]:
         )
         if result.returncode != 0:
             raise GrammarProjectError(
-                f"grammar pin object is absent: {source.key} {object_id}"
+                f"grammar pin object is missing: {source.key} {object_id}"
             )
         author, commit_date = _commit_fields(mirror, object_id)
         pins.append(
@@ -687,7 +691,10 @@ def _text(payload: bytes, label: str) -> bytes:
 
 
 def escape_mixed_bytes(payload: bytes, original: str) -> bytes:
-    """Render mixed UTF-8/legacy bytes injectively as UTF-8 text."""
+    """Render bytes that mix UTF-8 and a legacy encoding as UTF-8 text.
+
+    The rendering is injective: two different inputs never give the same output.
+    """
 
     if "\n" in original or "\r" in original or "\0" in original:
         raise GrammarProjectError("escaped grammar source name must be one line")
@@ -709,7 +716,7 @@ def escape_mixed_bytes(payload: bytes, original: str) -> bytes:
 
 
 def unescape_mixed_bytes(rendered: bytes) -> bytes:
-    """Reverse ``escape_mixed_bytes`` for verification and tests."""
+    """Reverse ``escape_mixed_bytes``. The verify step and the tests use this."""
 
     try:
         text = rendered.decode("utf-8")
@@ -772,7 +779,7 @@ def _unshar(payload: bytes) -> dict[str, bytes]:
             raise GrammarProjectError(f"parser shar contains an unsafe path: {path!r}")
         lines = (matched["body"] + b"\n").splitlines(keepends=True)
         if any(not line.startswith(b"X") for line in lines):
-            raise GrammarProjectError(f"parser shar body lacks X prefix: {path}")
+            raise GrammarProjectError(f"parser shar body has no X prefix: {path}")
         files[path] = b"".join(line[1:] for line in lines)
     contents = re.search(rb"# Contents: (?P<value>.*?)\n# Wrapped", source, re.DOTALL)
     if contents is None:
@@ -1091,7 +1098,7 @@ def _zasni_event(archive: Path) -> Event:
     timestamp = revision.get("timestamp")
     user = revision.get("user")
     if not isinstance(timestamp, str) or not isinstance(user, str):
-        raise GrammarProjectError("zasni gerna revision lacks timestamp or user")
+        raise GrammarProjectError("zasni gerna revision has no timestamp or no user")
     try:
         if not timestamp.endswith("Z"):
             raise ValueError
@@ -1170,7 +1177,7 @@ def _provenance(archive: Path) -> dict[str, str]:
     camxes_root = archive / "manifests/grammars/vendor/camxes"
     camxes_path = next(iter(sorted(camxes_root.glob("*.toml"))), None)
     if camxes_path is None:
-        raise GrammarProjectError("camxes archive provenance manifest is absent")
+        raise GrammarProjectError("camxes archive provenance manifest is missing")
     camxes = ArchiveManifest.load(camxes_path)
     rows["camxes"].append(
         {
@@ -1287,7 +1294,10 @@ def project(
     include_vendor: bool = True,
     include_zasni: bool = True,
 ) -> Iterable[Event]:
-    """Emit chronological gitlink pin events from archived mirror states."""
+    """Emit pin events in time order from the archived states of the mirrors.
+
+    Each event sets a gitlink, a submodule pointer to one source commit.
+    """
 
     pins = [pin for source in sources for pin in _pins(archive, source)]
     seen: set[str] = set()

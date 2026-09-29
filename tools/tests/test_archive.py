@@ -107,12 +107,13 @@ def test_store_object_is_content_addressed_immutable_and_idempotent(
 def test_store_object_survives_a_temporary_left_by_a_killed_process(
     tmp_path: Path,
 ) -> None:
-    """A stale temporary is not the object, and must not be read as one.
+    """A stale temporary file is not the object. The code must not read it as one.
 
-    The temporary used to be named per process, so a name left behind by a
-    process the kernel killed (no `finally`, no unlink) collided with the next
-    process the kernel gave that pid, and the collision handler read a
-    destination that was not there.
+    Before, the temporary name was unique for each process. The kernel killed a
+    process, so no `finally` and no unlink ran, and the name stayed behind. The
+    kernel then gave the same pid to the next process, and its name collided
+    with the old one. The collision handler then read a destination that was not
+    there.
     """
 
     payload = b"payload the killed process was writing"
@@ -143,10 +144,11 @@ def test_store_object_reports_a_collision_rather_than_overwriting(
 def test_store_object_writes_nothing_when_the_object_is_already_held(
     tmp_path: Path,
 ) -> None:
-    """Re-storing held bytes is the common case; it must not write a payload.
+    """To store bytes that the archive already holds is the usual case.
 
-    Making the directory unwritable is the only way to observe the difference
-    from outside: creating a temporary there would fail.
+    In that case, the code must not write a payload. The only way to see the
+    difference from outside is to make the directory read-only. Then an attempt
+    to create a temporary file there fails.
     """
 
     payload = b"already in the archive"
@@ -236,12 +238,13 @@ def test_manifest_load_rejects_invalid_fields(
 
 
 def test_a_reader_never_sees_a_half_written_object_or_manifest(tmp_path: Path) -> None:
-    """Exclusive create is not the same as safe to read while it happens.
+    """An exclusive create does not make a file safe to read during the write.
 
-    A build could not run beside a fetch because the IRC loader checks every
-    object against its manifest, and a partially written file fails that check
-    an hour into a run. Both writers now build under a temporary name and link
-    into place, so what appears at the final path is always complete.
+    Before, a build was not able to run at the same time as a fetch. The IRC
+    loader compares every object with its manifest. A partly written file failed
+    that comparison an hour into a run. Now both writers write under a temporary
+    name and link the file into place. So the file at the final path is always
+    complete.
     """
 
     archive = tmp_path / "archive"

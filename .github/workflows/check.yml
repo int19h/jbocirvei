@@ -23,9 +23,9 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --locked
-      - name: Tools tests and determinism sample
+      - name: Tests of the tools, and a sample check of determinism
         run: uv run pytest
-      - name: Lint, format, compile, and whitespace checks
+      - name: Checks of lint, format, compilation and whitespace
         run: |
           uv run ruff check tools/jbomohi_tools tools/tests
           uv run ruff format --check tools/jbomohi_tools tools/tests

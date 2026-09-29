@@ -1,4 +1,4 @@
-"""Bounded acquisition and extraction for public Maildir zip archives."""
+"""Download and extract the public Maildir zip archives, within fixed limits."""
 
 from __future__ import annotations
 
@@ -72,7 +72,7 @@ _MAX_UNCOMPRESSED_BYTES = 6 * 1024 * 1024 * 1024
 
 
 class MailFetchError(ArchiveError):
-    """A public mail archive could not be acquired or validated safely."""
+    """The code cannot safely download or check a public mail archive."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,7 +139,7 @@ def maildir_zip_url(list_name: str) -> str:
 def _validate_url(url: str) -> None:
     parsed = urlsplit(url)
     if parsed.scheme != "https" or parsed.hostname != MAIL_HOST:
-        raise MailFetchError(f"mail archive URL escaped its origin: {url}")
+        raise MailFetchError(f"mail archive URL is not from its origin: {url}")
     if not re_fullmatch_mail_path(parsed.path):
         raise MailFetchError(f"mail archive URL has an unexpected path: {url}")
 
@@ -248,7 +248,8 @@ class MhonarcHttpClient:
                 with urlopen(request, timeout=self.timeout) as response:
                     if response.geturl() != url:
                         raise MailFetchError(
-                            f"MHonArc response escaped its exact URL: {response.geturl()}"
+                            "MHonArc response is not from its exact URL: "
+                            f"{response.geturl()}"
                         )
                     body = response.read(self.max_bytes + 1)
                     if len(body) > self.max_bytes:
@@ -313,7 +314,8 @@ class NumberedRawHttpClient:
                 with urlopen(request, timeout=self.timeout) as response:
                     if response.geturl() != url:
                         raise MailFetchError(
-                            f"numbered raw-mail response escaped its URL: {response.geturl()}"
+                            "numbered raw-mail response is not from its URL: "
+                            f"{response.geturl()}"
                         )
                     body = response.read(self.max_bytes + 1)
                     if len(body) > self.max_bytes:
@@ -381,7 +383,8 @@ class FilesHttpClient:
                 with urlopen(request, timeout=self.timeout) as response:
                     if response.geturl() != url:
                         raise MailFetchError(
-                            f"files-mail response escaped its URL: {response.geturl()}"
+                            "files-mail response is not from its URL: "
+                            f"{response.geturl()}"
                         )
                     body = response.read(self.max_bytes + 1)
                     if len(body) > self.max_bytes:
@@ -423,7 +426,8 @@ def inspect_maildir_zip(path: Path) -> MaildirZipInventory:
             infos = archive.infolist()
             if len(infos) > _MAX_MEMBERS:
                 raise MailFetchError(
-                    f"maildir zip has {len(infos)} members; maximum is {_MAX_MEMBERS}"
+                    f"maildir zip has {len(infos)} members, "
+                    f"but the maximum is {_MAX_MEMBERS}"
                 )
             cur = 0
             new = 0
@@ -493,7 +497,10 @@ def fetch_maildir_zip(
     client: DownloadClient | None = None,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
 ) -> MailFetchReport:
-    """Download, validate, and content-address one public lists-plain zip."""
+    """Download one public lists-plain zip, check it, and store it by content.
+
+    The archive stores the zip under the SHA-256 digest of its bytes.
+    """
 
     url = maildir_zip_url(list_name)
     fetched_at = now()
@@ -588,7 +595,10 @@ def fetch_mhonarc(
     client: PageClient | None = None,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
 ) -> MhonarcFetchReport:
-    """Crawl dense MHonArc message numbers until the first HTTP 404."""
+    """Fetch MHonArc message pages in number order until the first HTTP 404.
+
+    The message numbers have no holes, so the first 404 is the end of the list.
+    """
 
     if list_name not in _MHONARC_SUPPORTED:
         raise MailFetchError(f"unsupported MHonArc list: {list_name!r}")
@@ -613,7 +623,7 @@ def fetch_mhonarc(
             obj = object_path(archive, existing.sha256)
             if not obj.is_file() or obj.stat().st_size != existing.bytes:
                 raise MailFetchError(
-                    f"cached MHonArc object is missing or wrong-sized: {obj}"
+                    f"cached MHonArc object is missing or has the wrong size: {obj}"
                 )
             reconstruct_mhonarc(obj.read_bytes())
             manifests.append(existing_path)
@@ -660,7 +670,7 @@ def fetch_jbosnu_raw(
     client: DownloadClient | None = None,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
 ) -> MhFetchReport:
-    """Download and archive the public raw jbosnu MH-folder zip."""
+    """Download and archive the public zip of the raw jbosnu MH folder."""
 
     url = f"https://{MAIL_HOST}/lists/jbosnu_raw.zip"
     fetched_at = now()
@@ -738,7 +748,9 @@ def load_jbosnu_manifestations(archive: Path) -> Iterator[MailManifestation]:
     manifest = ArchiveManifest.load(paths[0])
     obj = object_path(archive, manifest.sha256)
     if not obj.is_file() or obj.stat().st_size != manifest.bytes:
-        raise MailFetchError(f"jbosnu MH object missing or wrong-sized: {obj}")
+        raise MailFetchError(
+            f"jbosnu MH object is missing or has the wrong size: {obj}"
+        )
     for item in load_mh_zip(obj, provenance_prefix=manifest.origin):
         yield MailManifestation(
             list_name=item.list_name,
@@ -753,7 +765,7 @@ def load_jbosnu_manifestations(archive: Path) -> Iterator[MailManifestation]:
 def load_mhonarc_manifestations(
     archive: Path, list_name: str
 ) -> Iterator[MailManifestation]:
-    """Load reconstructed RFC 822 manifestations from archived MHonArc pages."""
+    """Load the RFC 822 messages that the code makes from archived MHonArc pages."""
 
     known = _known_mhonarc(archive, list_name)
     for index, path in sorted(known.items()):
@@ -762,7 +774,9 @@ def load_mhonarc_manifestations(
             raise MailFetchError(f"unexpected MHonArc manifest identity: {path}")
         obj = object_path(archive, manifest.sha256)
         if not obj.is_file() or obj.stat().st_size != manifest.bytes:
-            raise MailFetchError(f"MHonArc object missing or wrong-sized: {obj}")
+            raise MailFetchError(
+                f"MHonArc object is missing or has the wrong size: {obj}"
+            )
         yield MailManifestation(
             list_name=list_name,
             raw=RawMessage(payload=reconstruct_mhonarc(obj.read_bytes())),
@@ -792,7 +806,7 @@ def fetch_old_lojban_list(
     client: PageClient | None = None,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
 ) -> NumberedFetchReport:
-    """Fetch numbered raw old_lojban-list messages from 1 through first 404."""
+    """Fetch the numbered raw old_lojban-list messages, from 1 to the first 404."""
 
     if max_pages is not None and max_pages < 1:
         raise MailFetchError("max_pages must be positive")
@@ -885,7 +899,10 @@ def fetch_old_lojban_list(
 
 
 def load_old_lojban_manifestations(archive: Path) -> Iterator[MailManifestation]:
-    """Load archived old_lojban-list numbered raw messages for deduplication."""
+    """Load the archived numbered raw old_lojban-list messages.
+
+    The caller uses them to find duplicate messages.
+    """
 
     for index, path in sorted(_known_numbered(archive).items()):
         manifest = ArchiveManifest.load(path)
@@ -923,7 +940,7 @@ def fetch_mail_mboxes(
     client: PageClient | None = None,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
 ) -> MboxFetchReport:
-    """Discover and archive the native gzip-compressed 1990s mboxes."""
+    """Find and archive the original gzip-compressed mboxes from the 1990s."""
 
     fetched_at = now()
     if fetched_at.tzinfo is None:
@@ -1012,7 +1029,10 @@ def fetch_mail_mboxes(
 
 
 def load_mbox_manifestations(archive: Path) -> Iterator[MailManifestation]:
-    """Load all archived native 1990s mboxes in filename/message order."""
+    """Load all archived original mboxes from the 1990s.
+
+    The order is by file name, then by message.
+    """
 
     order = 0
     for name, path in sorted(_known_mboxes(archive).items()):

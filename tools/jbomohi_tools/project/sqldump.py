@@ -1,11 +1,12 @@
-"""Shared strict reader for `mysqldump --skip-extended-insert` exports.
+"""A shared, strict reader for `mysqldump --skip-extended-insert` exports.
 
-Both operator exports the corpus ingests (Tiki and MediaWiki) are MySQL dumps
-written one row per ``INSERT`` statement. The primitives here read such a dump
-as bytes and never decode text: every source decides its own character policy
-(SPEC.md sections 3.2 and 3.2.5), so a shared reader that guessed an encoding
-would corrupt one of them. Callers pass the exception type they want raised so
-each source keeps its own fail-closed error class.
+The corpus takes in two exports from the site operators, Tiki and MediaWiki.
+Both are MySQL dumps with one row in each ``INSERT`` statement. The functions
+here read such a dump as bytes and never decode text. Each source has its own
+rules for characters (SPEC.md sections 3.2 and 3.2.5). A shared reader that
+guesses an encoding will corrupt one of them. The caller gives the exception
+type to raise, so each source keeps its own error class. The reader fails
+closed: it stops with that error and does not guess.
 """
 
 from __future__ import annotations
@@ -35,12 +36,12 @@ _ESCAPES = {
 
 
 class SqlDumpError(ValueError):
-    """A SQL export violates the shape this reader is willing to accept."""
+    """A SQL export does not have the shape that this reader accepts."""
 
 
 @dataclass(frozen=True, slots=True)
 class SqlStatement:
-    """One statement of interest: a table schema or a single inserted row."""
+    """One statement that the reader keeps: a table schema or one inserted row."""
 
     table: str
     columns: tuple[str, ...] | None
@@ -49,7 +50,7 @@ class SqlStatement:
 
 @contextmanager
 def open_sql(path: Path, error: type[Exception] = SqlDumpError) -> Iterator[BinaryIO]:
-    """Open a plain or gzipped dump, failing closed on any read error."""
+    """Open a plain or gzipped dump. Raise `error` on any read error."""
 
     try:
         with path.open("rb") as probe:
@@ -63,7 +64,7 @@ def open_sql(path: Path, error: type[Exception] = SqlDumpError) -> Iterator[Bina
 def read_line(
     stream: BinaryIO, path: Path, error: type[Exception] = SqlDumpError
 ) -> bytes | None:
-    """Read one bounded, newline-terminated statement line."""
+    """Read one statement line, which must end in a newline and fit the limit."""
 
     raw = stream.readline(MAX_SQL_LINE + 1)
     if not raw:
@@ -78,10 +79,11 @@ def read_line(
 def statements(
     path: Path, error: type[Exception] = SqlDumpError
 ) -> Iterator[SqlStatement]:
-    """Stream every `CREATE TABLE` column list and every inserted row.
+    """Yield every `CREATE TABLE` column list and every inserted row.
 
-    A schema is reported once its closing ``) ENGINE=`` line is reached, so a
-    caller can check the column list before trusting the rows that follow.
+    The function yields a schema when it reaches the closing ``) ENGINE=``
+    line. Thus a caller can check the column list before it trusts the rows
+    that come after it.
     """
 
     schema_table: str | None = None
@@ -189,7 +191,7 @@ def require_columns(
     expected: Sequence[str],
     error: type[Exception] = SqlDumpError,
 ) -> None:
-    """Refuse a table whose column list is not exactly what the loader expects."""
+    """Refuse a table whose column list is not exactly the one the loader expects."""
 
     if tuple(actual) != tuple(expected):
         raise error(f"SQL dump has unexpected schema for {table}: {', '.join(actual)}")

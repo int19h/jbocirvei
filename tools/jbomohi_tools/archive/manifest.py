@@ -1,4 +1,8 @@
-"""Read and verify immutable archive objects from tracked manifests."""
+"""Read archive objects and make sure that they match their tracked manifests.
+
+A manifest is a TOML file that describes one archive object. Archive objects never
+change after the code stores them.
+"""
 
 from __future__ import annotations
 
@@ -20,7 +24,7 @@ GIT_OBJECT_ID = re.compile(r"^[0-9a-f]{40}$")
 
 
 class ArchiveError(RuntimeError):
-    """An archive manifest or object failed validation."""
+    """An archive manifest or object is not valid."""
 
 
 def _manifest_text(path: Path, label: str, value: object) -> str:
@@ -181,14 +185,15 @@ class ArchiveManifest:
         return "\n".join(lines) + "\n"
 
     def write(self, path: Path) -> None:
-        """Write the manifest so a concurrent reader sees all of it or none.
+        """Write the manifest so that a reader at the same time sees all or none of it.
 
-        Exclusive create stops one writer clobbering another, which is not the
-        same as being safe to read while it happens: a reader can see a
-        half-written file. That is why a build could not run beside a fetch —
-        the IRC loader checks every object against its manifest and a partial
-        read fails the build. Writing to a temporary name and renaming makes
-        the file appear whole.
+        An exclusive create stops one writer from overwriting the file of another
+        writer. But it does not make the file safe to read during the write. A
+        reader can see a half-written file. For this reason, a build was not able
+        to run at the same time as a fetch. The IRC loader compares every object
+        with its manifest, and a partial read makes the build fail. The code
+        writes to a temporary name and then puts the file at the final name. So
+        the file appears whole.
         """
 
         if path.exists():
@@ -233,27 +238,32 @@ def _confirm_stored(path: Path, payload: bytes) -> None:
 
 
 def store_object(archive: Path, payload: bytes) -> ArchiveObject:
-    """Store bytes once under their digest, refusing mutable collisions."""
+    """Store the bytes one time under their digest.
+
+    Refuse a collision. Do not change an object that is already stored.
+    """
 
     digest = hashlib.sha256(payload).hexdigest()
     path = object_path(archive, digest)
     path.parent.mkdir(parents=True, exist_ok=True)
-    # The name is the digest, so an object already at it is either this payload
-    # or a collision; there is nothing to write either way. Looking first costs
-    # a stat and saves writing the whole payload to a temporary only to unlink
-    # it, which is the common case while re-walking an archive already held.
-    # A racing writer that creates the object after this check lands in the
-    # same collision path below.
+    # The name is the digest. So an object that is already at that name is this
+    # payload or a collision. In both cases, there is nothing to write. To look
+    # first costs one stat call. It saves writing the whole payload to a
+    # temporary file only to unlink it. The usual case is a second walk over an
+    # archive that the code already holds. If a writer in a race creates the
+    # object after this check, it goes to the same collision path below.
     if path.exists() or path.is_symlink():
         _confirm_stored(path, payload)
         return ArchiveObject(path=path, sha256=digest, bytes=len(payload))
-    # Written under a temporary name and linked into place, so a reader either
-    # sees the whole object or does not see it at all. `link` keeps the
-    # exclusive-create guarantee: it fails if the name already exists. The
-    # temporary name is unique per call, not per process: a process killed
-    # between creating one and unlinking it (this machine has been OOM-killed
-    # mid-build) leaves the name behind, and a later process that the kernel
-    # gave the same pid must not mistake that for the object being in place.
+    # The code writes the object under a temporary name and links it into place.
+    # So a reader sees the whole object or does not see it at all. `link` keeps
+    # the guarantee of an exclusive create: if the name already exists, it fails.
+    # The temporary name is unique for each call, not for each process. The
+    # kernel can kill a process between creating the name and unlinking it. (The
+    # OOM killer stopped this machine in the middle of a build.) Then the name
+    # stays behind.
+    # A later process can get the same pid from the kernel. That process must not
+    # think that the object is in place.
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=f".{digest}.", suffix=".tmp", dir=path.parent
     )
@@ -289,7 +299,10 @@ def _file_digest(path: Path) -> tuple[str, int]:
 
 
 def store_file(archive: Path, source: Path) -> ArchiveObject:
-    """Stream a regular file into the immutable content-addressed archive."""
+    """Copy a regular file, one chunk at a time, into the archive.
+
+    The archive names each object by the hash of its content. Objects never change.
+    """
 
     try:
         source_stat = source.lstat()
@@ -333,7 +346,7 @@ def store_file(archive: Path, source: Path) -> ArchiveObject:
 
 
 def verify_manifests(manifest_root: Path, archive: Path) -> list[Path]:
-    """Verify every manifest below an explicit archive-manifest root."""
+    """Make sure that each manifest below the given root matches its archive object."""
 
     if not manifest_root.exists():
         return []

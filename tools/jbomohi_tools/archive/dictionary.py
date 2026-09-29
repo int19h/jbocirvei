@@ -1,4 +1,7 @@
-"""Ingest sanitized dictionary database exports into the raw archive tier."""
+"""Add the sanitized exports of the dictionary databases to the raw archive tier.
+
+A sanitized export is one with the private data removed.
+"""
 
 from __future__ import annotations
 
@@ -31,7 +34,7 @@ _TRANSIENT_HTTP = {429, 500, 502, 503, 504}
 
 
 class DictionaryFetchError(ArchiveError):
-    """The public Lensisku changes feed failed or returned invalid data."""
+    """The public changes feed of Lensisku failed or returned data that is not valid."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,7 +187,11 @@ def fetch_changes(
     client: FeedClient | None = None,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
 ) -> DictionaryFetchReport:
-    """Archive cursor-paginated public dictionary changes without authentication."""
+    """Archive the public changes of the dictionary without authentication.
+
+    The feed returns the changes in pages. Each page gives a cursor that points
+    to the next page.
+    """
 
     if since is not None and (not since or any(char.isspace() for char in since)):
         raise DictionaryFetchError("dictionary feed cursor must be non-empty text")
@@ -333,7 +340,11 @@ def _notes(name: str) -> str:
 def ingest_dictionary_exports(
     archive: Path, export_directory: Path, export_date: str
 ) -> DictionaryIngestReport:
-    """Validate and archive the exact seven public/diff-only export components."""
+    """Make sure that the seven export files are valid, then archive them.
+
+    The seven files are exactly those in `_FILES`. Each file is public, or the
+    code uses it only for a comparison (a diff) with the other export.
+    """
 
     if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", export_date):
         raise ArchiveError("dictionary export date must be YYYY-MM-DD")

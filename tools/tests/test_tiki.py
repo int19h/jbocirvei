@@ -553,18 +553,18 @@ def test_ingest_tiki_export_writes_three_operator_export_manifests(
 
 
 def test_utf8_fidelity_note_claims_only_what_the_two_exports_prove() -> None:
-    """The note is the reader's guide to how far to trust the text.
+    """The note tells the reader how far to trust the text.
 
-    An earlier version said the '?' characters were stored in the database
-    because both exports counted the same number of rows containing one. Most
-    '?' are ordinary punctuation, so that inference does not hold, and the note
-    must not make it.
+    An earlier version said that the database stored the '?' characters. The
+    reason it gave was that both exports counted the same number of rows with a
+    '?'. But most '?' characters are ordinary punctuation. So that conclusion is
+    not correct, and the note must not state it.
     """
 
     note = _fidelity_note("utf8")
     assert "not evidence that any '?' is stored" in note
     assert "are stored in the database, not lost by an export client" not in note
-    # What the equality does show is worth keeping, stated as itself.
+    # Keep what the equal counts do show, and state only that.
     assert "identical in the latin1-transcoded and utf8mb4 exports" in note
     # SPEC.md 3.2.5(c): mojibake is published, not repaired.
     assert "no characters repaired" in note
@@ -573,11 +573,11 @@ def test_utf8_fidelity_note_claims_only_what_the_two_exports_prove() -> None:
 
 
 def test_latin1_fidelity_note_says_the_text_is_not_the_stored_bytes() -> None:
-    """The 2026-09-15 re-export proved the latin1 client altered text.
+    """The second export on 2026-09-15 proved that the latin1 client changed text.
 
-    The note used to say characters "may be lost", which reads as a caution
-    about something that might have happened. It did happen, and a reader
-    deciding whether to quote this text needs to know that.
+    The old note said that characters "may be lost". A reader takes that as a
+    warning about a possible event. But the event did occur. A reader who
+    decides whether to quote this text must know that.
     """
 
     note = _fidelity_note("latin1-transcoded")
@@ -589,13 +589,13 @@ def test_latin1_fidelity_note_says_the_text_is_not_the_stored_bytes() -> None:
 def test_content_manifest_note_states_what_the_export_actually_is(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """SPEC.md 2.3: the manifest is the evidence of what was used.
+    """SPEC.md 2.3: the manifest is the evidence of what the build used.
 
-    The note used to assert, for every export, that tiki_forums had been
-    stripped locally and that the client was latin1. The 2026-09-15 export is
-    utf8mb4 and the operator excluded the table themselves, so both halves were
-    false where it mattered most: on the component whose encoding is the whole
-    question.
+    The old note claimed two things for every export. It said that someone
+    stripped tiki_forums locally, and that the client was latin1. The export of
+    2026-09-15 is utf8mb4, and the operator left the table out of the export.
+    So both claims were false on the most important component: the one whose
+    encoding is the whole question.
     """
 
     export = tmp_path / "export"
@@ -647,21 +647,21 @@ def test_content_manifest_note_states_what_the_export_actually_is(
 
 
 def test_stored_mojibake_is_recognised_by_definition_not_by_spelling() -> None:
-    """A latin-1 reading of UTF-8 is what mojibake *is*, so test that.
+    """Mojibake is a latin-1 reading of UTF-8, so the test uses that definition.
 
-    The 2026-09-15 utf8mb4 re-export shows the mojibake is in the database
-    itself, so SPEC.md 3.2.5(c) publishes those bytes unrepaired and coverage
-    merely counts them.
+    The second export on 2026-09-15 used utf8mb4. It shows that the mojibake is
+    in the database itself. So SPEC.md 3.2.5(c) publishes those bytes with no
+    repair, and the coverage file only counts them.
     """
 
     from jbomohi_tools.project.tiki import looks_like_stored_mojibake
 
-    # Real text, stored as its UTF-8 bytes read back as latin-1.
+    # Real text, stored as its UTF-8 bytes and read back as latin-1.
     for original in ("caf\u00e9", "\u201cquoted\u201d", "na\u00efve"):
         assert looks_like_stored_mojibake(original.encode("utf-8").decode("latin-1")), (
             original
         )
-    # Text that is simply correct, in any script, is not mojibake.
+    # Correct text, in any script, is not mojibake.
     for good in (
         "caf\u00e9",
         "plain ascii",

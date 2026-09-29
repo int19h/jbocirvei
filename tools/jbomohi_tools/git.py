@@ -1,4 +1,4 @@
-"""Deterministic git operations for the corpus projection."""
+"""Deterministic git operations (same input, same output) for the corpus projection."""
 
 from __future__ import annotations
 
@@ -17,9 +17,9 @@ from typing import Self
 from urllib.parse import quote, unquote
 
 EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
-# SPEC.md 3.1: a commit subject is always one non-empty line, and a source that
-# offers no title, subject or comment gets a placeholder rather than an
-# invented description. Mail keeps its own, older `[no subject]`.
+# SPEC.md 3.1: a commit subject is always one line that is not empty. If a
+# source gives no title, subject or comment, the subject gets a placeholder, not
+# an invented description. Mail keeps its own, older `[no subject]`.
 UNTITLED = "[untitled]"
 SOURCES = {
     "wiki",
@@ -85,11 +85,11 @@ class GitError(RuntimeError):
 
 
 class EventError(ValueError):
-    """An event violates the corpus commit contract."""
+    """An event breaks the contract for corpus commits."""
 
 
 def git_command(args: Sequence[str]) -> list[str]:
-    """The git invocation the corpus uses, pinned against local configuration."""
+    """Return the git command for the corpus, fixed against local configuration."""
 
     return [
         "git",
@@ -106,7 +106,7 @@ def git_command(args: Sequence[str]) -> list[str]:
 
 
 def git_environment(env: Mapping[str, str] | None = None) -> dict[str, str]:
-    """The environment the corpus uses, with the caller's git config removed."""
+    """Return the environment for git, without the git configuration of the caller."""
 
     process_env = dict(os.environ)
     if env:
@@ -180,7 +180,7 @@ def _encoded_local_part(value: str) -> str:
 
 
 def _git_safe_name(value: str, *, label: str = "identity name") -> str:
-    """Injectively encode source-name syntax that git cannot retain."""
+    """Encode the parts of a source name that git cannot keep, one-to-one."""
 
     if (
         not isinstance(value, str)
@@ -235,7 +235,7 @@ def _source_date(value: str) -> None:
 
 @dataclass(frozen=True, slots=True)
 class Identity:
-    """A source-scoped identity rendered into a git name and email."""
+    """An identity inside one source, written as a git name and email."""
 
     name: str
     email: str
@@ -319,10 +319,11 @@ class Identity:
 
     @classmethod
     def mail(cls, address: str, display_name: str | None = None) -> Identity:
-        """Create a mail identity, explicitly escaping git-unsafe name syntax.
+        """Create a mail identity, and escape the name characters that git removes.
 
-        Git strips angle brackets and leading/trailing dots from author names.
-        Percent signs are escaped too, keeping this normalisation injective.
+        Git removes angle brackets from author names, and dots at their start or
+        end. This function also escapes percent signs. So the normalization stays
+        one-to-one: two different names never give the same result.
         """
 
         source_email = _clean_text("mail address", address)
@@ -344,13 +345,13 @@ class Identity:
 
     @classmethod
     def upstream(cls, name: str, email: str) -> Identity:
-        """Retain the public author identity stored in an upstream git commit."""
+        """Keep the public author identity from an upstream git commit."""
 
         return cls(name, email, "upstream")
 
     @classmethod
     def document(cls, host: str, name: str, author_slug: str) -> Identity:
-        """Create a source-stated document author with an attested email slug."""
+        """Create a document author from the source, with an attested email slug."""
 
         clean_host = _clean_text("document author host", host)
         clean_name = _clean_text("document author name", name)
@@ -372,11 +373,11 @@ class Identity:
 
     @classmethod
     def unrecorded(cls, host: str) -> Identity:
-        """The source keeps no author at all, which is not suppression.
+        """The source records no author at all. This is not suppression.
 
-        SPEC.md 2.5 keeps this distinct from `anonymous@`: a MediaWiki
-        transwiki import with no actor row records nobody, while `anonymous`
-        means the wiki deliberately withheld a name it holds.
+        SPEC.md 2.5 keeps this separate from `anonymous@`. A MediaWiki transwiki
+        import with no actor row records nobody. But `anonymous` means that the
+        wiki holds a name and chose to hide it.
         """
 
         clean_host = _clean_text("unrecorded host", host)
@@ -416,7 +417,7 @@ def _safe_repo_path(value: str) -> PurePosixPath:
 
 @dataclass(frozen=True, slots=True)
 class Event:
-    """One source event and the complete file changes it contributes."""
+    """One source event and all the file changes that it makes."""
 
     source: str
     source_id: str
@@ -443,7 +444,7 @@ class Event:
         subject = f"{source}: {summary}"
         if len(subject) > 72:
             raise EventError(
-                f"commit subject is {len(subject)} characters; maximum is 72"
+                f"commit subject is {len(subject)} characters, but the maximum is 72"
             )
         if self.event not in EVENTS:
             raise EventError(f"unsupported event: {self.event!r}")
@@ -623,16 +624,16 @@ def _resolve_corpus(corpus: Path | None) -> Path:
 
 
 def commit_event(event: Event, corpus: Path | None = None) -> str:
-    """Commit one validated event without consulting the clock.
+    """Commit one validated event. This function does not read the clock.
 
-    The working tree must be clean so that an event can neither absorb nor
-    erase unrelated state. Only the event's declared paths are staged.
+    The working tree must be clean, so that an event cannot take in or erase
+    unrelated state. The function stages only the paths that the event declares.
     """
 
     resolved = _resolve_corpus(corpus)
     dirty = git_output(resolved, ["status", "--porcelain=v1", "--untracked-files=all"])
     if dirty:
-        raise GitError("corpus working tree is not clean; refusing to commit an event")
+        raise GitError("corpus working tree is not clean: refusing to commit an event")
     old_head = _head(resolved)
     if old_head:
         run_git(resolved, ["read-tree", old_head])
@@ -648,11 +649,11 @@ def _commit_event_into(
     *,
     move_head: bool = True,
 ) -> str:
-    """Stage and commit one event into an index the caller has prepared.
+    """Stage and commit one event into an index that the caller prepared.
 
-    With `move_head` false the commit is written but `HEAD` is left where it
-    was: a build chains commits by parent and only has to move the ref once,
-    at the end, which is one process fewer per event.
+    If `move_head` is false, the function writes the commit but does not move
+    `HEAD`. A build chains commits by parent, so it must move the ref only one
+    time, at the end. That saves one process for each event.
     """
 
     event.validate()
@@ -709,10 +710,10 @@ def _commit_event_into(
             target.unlink()
         paths.append(relative)
     if paths:
-        # One argument per path exceeded ARG_MAX once IRC arrived: a single
-        # refresh commit carries every archive manifest, and 71,752 of them do
-        # not fit on a command line. Git reads them from stdin instead, NUL
-        # separated so that no path needs quoting.
+        # After the IRC source came, one argument for each path went over
+        # ARG_MAX. One refresh commit contains every archive manifest, and
+        # 71,752 paths do not fit on a command line. So git reads the paths from
+        # stdin. NUL bytes separate them, so no path needs quotes.
         run_git(
             corpus,
             ["add", "-A", "--pathspec-from-file=-", "--pathspec-file-nul"],
@@ -753,26 +754,29 @@ def _move_head(corpus: Path, commit: str, old_head: str | None) -> None:
 
 
 class BuildCommitSession:
-    """Commit a whole build into a scratch repository the tools own.
+    """Commit a whole build into a scratch repository that the tools own.
 
-    `commit_event` proves the worktree clean and rebuilds the index from HEAD
-    before every event. Both are O(files in the corpus), so the cost per commit
-    climbs as the corpus grows and the full build takes hours. A build owns its
-    scratch repository outright — nothing else writes to it — so the clean
-    check is answered once at the start and the index is kept alive across
-    events instead. `write-tree` then rewrites only the subtrees the event
-    touched, because the index keeps its cache-tree, and the commits are
-    byte-identical to the ones the per-event path produces.
+    Before each event, `commit_event` proves that the worktree is clean, and it
+    rebuilds the index from HEAD. Both steps are O(files in the corpus). So the
+    cost of each commit grows with the corpus, and the full build takes hours.
+    A build owns its scratch repository fully, and nothing else writes to it.
+    So this session does the clean check one time at the start, and keeps the
+    index alive across events. `write-tree` then rewrites only the subtrees that
+    the event changed, because the index keeps its cache-tree. The commits are
+    byte-identical to the commits of the per-event path.
 
-    `update` uses this too, on the shared corpus, and loses nothing by it. The
-    per-event clean check never protected against a contributor writing during
-    an update: it only noticed sooner, and `commit_event` reads HEAD afresh
-    each time, so a commit landing mid-update was chained onto rather than
-    refused. Here the ref moves by compare-and-swap against the head the
-    session started from, so a contributor's commit makes the update fail
-    instead of absorbing it. What the per-event path did buy was durability
-    under a kill, and `flush` gives that back: an update flushes periodically,
-    so an interrupted run keeps all but the last few events and resumes.
+    `update` uses this class too, on the shared corpus, and loses nothing. The
+    per-event clean check never protected against a contributor who writes
+    during an update. It only saw the write sooner. Also, `commit_event` reads
+    HEAD again each time, so it chained a commit that came during an update. It
+    did not refuse that commit.
+
+    Here the ref moves by compare-and-swap against the head at the start of the
+    session. So a commit from a contributor makes the update fail, and the
+    update does not take it in. The per-event path did keep the work safe if a
+    process was killed, and `flush` gives that back. An update flushes at
+    intervals. So an interrupted run keeps all except the last few events, and
+    it can resume.
     """
 
     def __init__(self, corpus: Path) -> None:
@@ -783,7 +787,7 @@ class BuildCommitSession:
         )
         if dirty:
             raise GitError(
-                "corpus working tree is not clean; refusing to build into it"
+                "corpus working tree is not clean: refusing to build into it"
             )
         self.head = _head(self.corpus)
         self.started = self.head
@@ -797,7 +801,7 @@ class BuildCommitSession:
         return self.head
 
     def flush(self) -> None:
-        """Point HEAD at the last commit written, once."""
+        """Point HEAD at the last written commit, one time."""
 
         if self.head is not None and self.head != self.started:
             _move_head(self.corpus, self.head, self.started)
@@ -812,11 +816,12 @@ class BuildCommitSession:
 
 
 def _fast_import_path(relative: str) -> bytes:
-    """Quote a path for fast-import, which reads one path per line.
+    """Quote a path for fast-import, which reads one path on each line.
 
-    Always quoting removes any question about spaces, quotes or the leading
-    double quote fast-import would otherwise read as the start of a quoted
-    path, and C-style escaping is what it expects inside the quotes.
+    This function always quotes the path. So spaces and quotes cause no doubt,
+    and neither does a leading double quote, which fast-import can read as the
+    start of a quoted path. Inside the quotes, fast-import expects C-style
+    escapes.
     """
 
     escaped = relative.encode("utf-8").decode("latin-1")
@@ -835,21 +840,22 @@ def _fast_import_path(relative: str) -> bytes:
 class FastImportSession:
     """Build a whole history through one `git fast-import` process.
 
-    The plumbing path spends its time on work proportional to the corpus
-    rather than to the event: it rebuilds and rewrites the index for every
-    commit, so a build slows down as it goes — the first production build ran
-    at 244 commits a minute in its first hour and 57 in its seventh. Feeding
-    one stream to fast-import makes a commit cost what the event costs, and
-    nothing more.
+    The plumbing path (low-level git commands for each event) spends its time
+    on work that grows with the corpus, not with the event. It rebuilds and
+    rewrites the index for each commit, so a build gets slower as it runs. The
+    first production build ran at 244 commits a minute in its first hour, and
+    at 57 in its seventh. With one stream to fast-import, a commit costs only
+    what its event costs.
 
-    The commits are byte-identical to the plumbing path's: the same author and
-    committer, date, message, trailers and tree, including gitlinks and the
-    accumulated `.gitmodules`. Identical heads are the acceptance, not a
-    resemblance. The worktree is not touched until the end, because
-    fast-import writes objects and refs only; `__exit__` checks it out once.
+    The commits are byte-identical to the commits of the plumbing path. They
+    have the same author and committer, date, message, trailers and tree. This
+    includes gitlinks and the accumulated `.gitmodules`. The acceptance test is
+    identical heads, not similar ones. The session does not touch the worktree
+    until the end, because fast-import writes only objects and refs. `__exit__`
+    checks out the result one time.
 
-    `update` uses `BuildCommitSession` instead: it appends to a history rather
-    than replacing one, and must leave the worktree usable at every flush.
+    `update` uses `BuildCommitSession` instead. It appends to a history and does
+    not replace one, and it must leave the worktree usable at each flush.
     """
 
     def __init__(self, corpus: Path, branch: str = "refs/heads/main") -> None:
@@ -858,7 +864,9 @@ class FastImportSession:
             self.corpus, ["status", "--porcelain=v1", "--untracked-files=all"]
         )
         if dirty:
-            raise GitError("corpus worktree is not clean; refusing to build into it")
+            raise GitError(
+                "corpus working tree is not clean: refusing to build into it"
+            )
         self.branch = branch
         self.head = _head(self.corpus)
         self.started = self.head
@@ -866,8 +874,8 @@ class FastImportSession:
         self.submodules = _submodules_at(self.corpus, self.head)
         self.tracked: set[str] = set()
         if self.head:
-            # -z, because `ls-tree` C-quotes any path with a space, a quote or
-            # a non-ASCII byte, and a quoted name would not match the path an
+            # Use -z, because `ls-tree` C-quotes each path with a space, a quote
+            # or a non-ASCII byte. A quoted name does not match the path that an
             # event deletes.
             listing = run_git(
                 self.corpus, ["ls-tree", "-r", "-z", "--name-only", self.head]
@@ -941,8 +949,8 @@ class FastImportSession:
         ]
         self._write(b"\n".join(lines) + b"\n" + self._blob(message))
         if mark == 1 and self.head:
-            # Continue the branch the deterministic root commit started; an
-            # unborn branch has no parent to name.
+            # Continue the branch that the deterministic root commit started.
+            # An unborn branch has no parent to name.
             self._write(b"from " + self.head.encode("ascii") + b"\n")
         for relative, payload in writes:
             self._write(b"M 100644 inline " + _fast_import_path(relative) + b"\n")
@@ -964,11 +972,11 @@ class FastImportSession:
         return f":{mark}"
 
     def finish(self) -> str | None:
-        """Close the stream, then make the worktree match what was written."""
+        """Close the stream. Then make the worktree match the written history."""
 
         assert self.process.stdin is not None
-        # `--done` makes the terminator mandatory, including for a build that
-        # produced no events at all.
+        # With `--done`, the terminator is mandatory. This is also true for a
+        # build that made no events.
         self._write(b"done\n")
         self.process.stdin.close()
         if self.process.wait() != 0:
@@ -987,8 +995,8 @@ class FastImportSession:
         if exc[0] is None:
             self.finish()
             return
-        # The build failed: abandon the stream without letting a broken pipe
-        # or a stuck child hide the error that actually matters.
+        # The build failed. Abandon the stream, and do not let a broken pipe or
+        # a stuck child process hide the real error.
         self.abandon()
 
     def abandon(self) -> None:

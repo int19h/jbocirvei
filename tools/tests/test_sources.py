@@ -46,11 +46,11 @@ def test_mediawiki_pages_from_archive_supplies_tiki_mapping_input(
 def test_source_factories_reads_each_wiki_input_once(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The archived crawl and the export are each loaded once and shared.
+    """The code loads the archived crawl and the export one time each, and shares them.
 
-    Both are expensive — the export is a 448 MB stream — and SPEC.md 3.2 has
-    the wiki projector and Tiki's migration map read the same wiki state, so a
-    build must not parse either input twice.
+    Both inputs are expensive to load. The export is a 448 MB stream. SPEC.md 3.2
+    has the wiki projector and the Tiki migration map read the same wiki state. So
+    a build must not parse either input two times.
     """
 
     config = Config(
@@ -93,7 +93,7 @@ def test_source_factories_reads_each_wiki_input_once(
 def test_source_factories_unions_the_export_with_the_crawl(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """With an export ingested, the wiki projector sees both inputs."""
+    """If the archive has an export, the wiki projector sees both inputs."""
 
     from jbomohi_tools.project.wiki import WikiPageFragment
     from jbomohi_tools.project.wiki_sql import WikiSqlDump
@@ -126,7 +126,7 @@ def test_source_factories_unions_the_export_with_the_crawl(
     )
     list(source_factories(config, ("wiki",))["wiki"]())
     [inputs] = seen
-    # The export comes first, so its explanation of an unresolvable text wins.
+    # The export comes first. So for a text that nobody can find, its reason wins.
     assert [f.pageid for f in inputs.fragments] == [2, 1]
     assert [name for name, _count, _cause in inputs.additive]
 
@@ -327,22 +327,22 @@ def test_mail_gap_records_exact_unavailable_beginners_pages(
 
 
 class _Inputs:
-    """A stand-in for the multi-gigabyte wiki union, so a weakref can watch it."""
+    """A stand-in for the wiki union of many gigabytes, which a weakref can watch."""
 
 
 def test_wiki_inputs_are_released_when_the_wiki_stream_ends(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """SPEC.md 2.4 does not care where inputs live; a shared machine does.
+    """SPEC.md 2.4 does not care where inputs live, but a shared machine does.
 
-    The wiki pair were the only inputs a factory closed over, so they stayed
-    resident for the whole build. On the 2026-09-16 corpus that meant 11.5 GiB
-    held through a 41-minute install that needed none of it. Handing them to
-    the projector makes the end of the stream the end of the memory.
+    The wiki pair were the only inputs that a factory closed over. So they stayed
+    in memory for the whole build. On the 2026-09-16 corpus, that was 11.5 GiB,
+    kept through a 41-minute install that used none of it. The factory now gives
+    the inputs to the projector. So the memory is free when the stream ends.
     """
 
-    # The loaders hand their result over and keep nothing, so that the only
-    # references in play are the ones under test rather than the test's own.
+    # The loaders give their result away and keep nothing. So the only
+    # references are the ones under test, and the test itself holds none.
     box = {"inputs": _Inputs(), "media": _Inputs()}
     watch_inputs = weakref.ref(box["inputs"])
     watch_media = weakref.ref(box["media"])
@@ -376,12 +376,12 @@ def test_wiki_inputs_are_released_when_the_wiki_stream_ends(
     assert not box, "the test itself must not hold the inputs"
 
     stream = factories["wiki"]()
-    # While the projector is producing, its inputs are of course still alive.
+    # While the projector makes events, its inputs are still alive.
     assert watch_inputs() is not None
     assert watch_media() is not None
 
-    # Exhausting and dropping the stream is what a finished source looks like
-    # to the merge, which pops it from the heap and keeps no reference.
+    # To the merge, a finished source is a stream that is exhausted and dropped.
+    # The merge pops it from the heap and keeps no reference to it.
     assert list(stream) == []
     del stream
     gc.collect()

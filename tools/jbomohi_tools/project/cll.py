@@ -1,4 +1,7 @@
-"""Pure rendering of archived Complete Lojban Language git editions."""
+"""Render the archived git editions of The Complete Lojban Language.
+
+The rendering is pure: it uses only the archive and changes nothing else.
+"""
 
 from __future__ import annotations
 
@@ -73,7 +76,10 @@ ALIGNMENT_COLUMNS = (
 
 
 class CllRenderError(ValueError):
-    """The archived CLL mirror cannot produce a faithful deterministic rendering."""
+    """The archived CLL mirror cannot give a faithful, deterministic rendering.
+
+    Deterministic means that the same input always gives the same output.
+    """
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,7 +109,7 @@ def _manifest(archive: Path) -> ArchiveManifest:
         if item.source == "cll" and item.kind == "git-mirror" and item.origin == CLL_URL
     ]
     if not valid:
-        raise CllRenderError("CLL git-mirror manifest is absent")
+        raise CllRenderError("CLL git-mirror manifest is missing")
     return max(
         valid,
         key=lambda item: (
@@ -139,7 +145,7 @@ def _mirror_refs(archive: Path) -> tuple[Path, dict[str, str]]:
 
     mirror = archive / "git" / "cll.git"
     if mirror.is_symlink() or not mirror.is_dir():
-        raise CllRenderError(f"CLL bare mirror is absent or unsafe: {mirror}")
+        raise CllRenderError(f"CLL bare mirror is missing or unsafe: {mirror}")
     if git_output(mirror, ["rev-parse", "--is-bare-repository"]) != "true":
         raise CllRenderError(f"CLL mirror is not a bare repository: {mirror}")
     tags = set(
@@ -181,7 +187,10 @@ def _commit_date(mirror: Path, object_id: str) -> datetime:
 
 
 def editions(archive: Path) -> tuple[Path, list[Edition]]:
-    """Load the scoped edition table and verify every mirrored ref."""
+    """Load the table of editions in scope.
+
+    Make sure that every mirrored ref points to the recorded commit.
+    """
 
     mirror, refs = _mirror_refs(archive)
     values = [
@@ -260,7 +269,7 @@ def editions(archive: Path) -> tuple[Path, list[Edition]]:
 def _show(mirror: Path, object_id: str, path: str) -> str:
     result = run_git(mirror, ["show", f"{object_id}:{path}"], check=False)
     if result.returncode != 0:
-        raise CllRenderError(f"CLL {object_id} lacks source path {path}")
+        raise CllRenderError(f"CLL {object_id} has no source path {path}")
     return result.stdout
 
 
@@ -284,7 +293,7 @@ def _html_heading(document: str, tag: str, chapter: int) -> str:
         flags=re.DOTALL | re.IGNORECASE,
     )
     if matched is None:
-        raise CllRenderError(f"CLL HTML chapter {chapter} lacks {tag}")
+        raise CllRenderError(f"CLL HTML chapter {chapter} has no {tag}")
     value = _tag_text(matched["value"])
     value = re.sub(rf"^Chapter\s+{chapter}\s*", "", value, flags=re.IGNORECASE)
     if not value:
@@ -660,7 +669,10 @@ def _csv(columns: Sequence[str], rows: Iterable[Mapping[str, object]]) -> str:
 
 
 def alignment(left: RenderedEdition, right: RenderedEdition) -> list[dict[str, str]]:
-    """Align one adjacent edition pair under the deterministic §3.6 policy."""
+    """Align the sections of two adjacent editions.
+
+    The deterministic rule of §3.6 decides the alignment.
+    """
 
     rows: list[dict[str, str]] = []
     left_ids = set(left.sections)
@@ -745,7 +757,10 @@ def alignment(left: RenderedEdition, right: RenderedEdition) -> list[dict[str, s
 
 
 def project(archive: Path) -> Iterable[Event]:
-    """Render every scoped CLL edition into chronological gitlink events."""
+    """Render every CLL edition in scope as events in time order.
+
+    Each event sets a gitlink, a submodule pointer to one source commit.
+    """
 
     mirror, source_editions = editions(archive)
     rendered = [render_edition(item, mirror) for item in source_editions]

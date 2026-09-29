@@ -1,4 +1,7 @@
-"""Rate-limited, resumable MediaWiki API acquisition."""
+"""Fetch from the MediaWiki API at a limited rate, and resume a stopped run.
+
+A run can reuse the archived response to a request that an earlier run made.
+"""
 
 from __future__ import annotations
 
@@ -23,7 +26,7 @@ TRANSIENT_HTTP = {429, 500, 502, 503, 504}
 
 
 class WikiFetchError(ArchiveError):
-    """MediaWiki acquisition failed or returned an unsafe response."""
+    """A MediaWiki fetch failed or returned an unsafe response."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,7 +105,7 @@ class WikiApiClient:
                         or parsed.path != "/api.php"
                     ):
                         raise WikiFetchError(
-                            f"MediaWiki response escaped the API origin: {final_url}"
+                            f"MediaWiki response left the API origin: {final_url}"
                         )
                     body = response.read(self.max_bytes + 1)
                     if len(body) > self.max_bytes:
@@ -272,7 +275,7 @@ def fetch(
     client: ResponseClient | None = None,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
 ) -> FetchReport:
-    """Fetch site metadata, page histories, and move/delete logs."""
+    """Fetch site metadata, file metadata, page histories, and move and delete logs."""
 
     if since is not None:
         try:

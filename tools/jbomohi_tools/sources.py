@@ -1,4 +1,7 @@
-"""Archive-to-event wiring for merged source projectors."""
+"""Connect the archive to the merged source projectors that make events.
+
+A projector is code that turns archived sources into commits.
+"""
 
 from __future__ import annotations
 
@@ -56,10 +59,10 @@ from .project.wiki_sql import (
 
 
 class SourceWiringError(RuntimeError):
-    """Required archive inputs for a projector are absent or ambiguous."""
+    """The archive inputs that a projector needs are missing or not clear."""
 
 
-# Complete page inventories recorded in SPEC.md section 3.3.
+# The complete page counts that SPEC.md section 3.3 records.
 OLD_LOJBAN_LIST_PAGE_COUNT = 19_674
 LOJBAN_BEGINNERS_MHONARC_PAGE_COUNT = 20_910
 LOJBAN_BEGINNERS_MHONARC_KNOWN_MISSING = frozenset({5_411, 5_412})
@@ -68,7 +71,7 @@ LOJBAN_BEGINNERS_MHONARC_KNOWN_MISSING = frozenset({5_411, 5_412})
 def mediawiki_pages_from_archive(
     config: Config, fragments: Iterable[WikiPageFragment] | None = None
 ) -> dict[str, str]:
-    """Build Tiki's migration map from the same archived wiki projection input."""
+    """Make the Tiki migration map from the archived input of the wiki projection."""
 
     result: dict[str, str] = {}
     source_fragments = (
@@ -86,7 +89,7 @@ def mediawiki_pages_from_archive(
 
 
 class _Unset:
-    """Distinguishes "no export is ingested" from "the caller did not say"."""
+    """Tell "no export is ingested" apart from "the caller did not say"."""
 
 
 UNSET = _Unset()
@@ -99,12 +102,12 @@ def wiki_inputs(
     logs: Sequence[WikiLogEvent] | None = None,
     dump: WikiSqlDump | None | _Unset = UNSET,
 ) -> WikiProjectorInputs:
-    """Union the archived API crawl with the operator export, if one is held.
+    """Join the archived API crawl and the operator export, if the archive has one.
 
-    SPEC.md 3.2 gives the wiki both inputs and defines them as equal over their
-    intersection, so the build projects the union: the export supplies the
-    deleted lineages and the actor-less revisions `api.php` cannot serve, and
-    `_meta/wiki/coverage.toml` names every such class.
+    SPEC.md 3.2 gives the wiki both inputs. It defines them as equal where they
+    overlap. So the build projects the union of the two. The export supplies the
+    deleted lineages and the revisions without an actor, which `api.php` cannot
+    serve. `_meta/wiki/coverage.toml` names each such class.
     """
 
     api_fragments = (
@@ -151,7 +154,9 @@ def _component(archive: Path, root: Path, prefix: str) -> Path:
     manifest = ArchiveManifest.load(matches[0])
     obj = object_path(archive, manifest.sha256)
     if not obj.is_file() or obj.stat().st_size != manifest.bytes:
-        raise SourceWiringError(f"archive object missing or wrong-sized: {obj}")
+        raise SourceWiringError(
+            f"archive object is missing or has the wrong size: {obj}"
+        )
     return obj
 
 
@@ -169,7 +174,7 @@ def dictionary_events(config: Config) -> Iterable[Event]:
     )
     manifests = sorted(root.glob("*.toml"))
     if not manifests:
-        raise SourceWiringError("dictionary export manifests are absent")
+        raise SourceWiringError("the dictionary export manifests are missing")
     origins = {ArchiveManifest.load(path).origin for path in manifests}
     if len(origins) != 1:
         raise SourceWiringError("dictionary export manifests disagree on origin")
@@ -245,9 +250,9 @@ def tiki_events(
 
 
 def irc_events(config: Config) -> Iterable[Event]:
-    # The configured channel list lives with the fetcher; the projector sees
-    # only what was archived. Passing it through is what lets a channel nobody
-    # fetched appear as absent rather than not appear at all.
+    # The configured channel list is in the fetcher. The projector sees only
+    # what the archive holds. This call passes the list through, so a channel
+    # that nobody fetched shows as absent. Without the list, it does not show.
     return project_irc(
         load_irc_archive(config.archive),
         archives=load_irc_channel_archives(config.archive),
@@ -343,13 +348,13 @@ def mail_events(config: Config) -> Iterable[Event]:
 
 
 def _handover(held: dict[str, object], *keys: str) -> tuple[object, ...]:
-    """Take the named inputs out of `held`, so only the caller still has them.
+    """Take the named inputs out of `held`, so that only the caller has them.
 
-    A factory that closed over its inputs kept them for the whole build, which
-    on the 2026-09-16 corpus meant 11.5 GiB held through a 41-minute install
-    that needed none of it. Popping hands ownership to the projector's own
-    iterator, which drops them when its stream ends. Every other source was
-    already like this; only the wiki pair was not.
+    A factory that closed over its inputs kept them for the whole build. On the
+    2026-09-16 corpus, that was 11.5 GiB, kept through a 41-minute install that
+    used none of it. The pop gives ownership to the iterator of the projector,
+    which drops the inputs when its stream ends. Every other source already
+    worked like this. Only the wiki pair did not.
     """
 
     return tuple(held.pop(key) for key in keys)
@@ -361,7 +366,7 @@ def source_factories(
     *,
     mediawiki_pages: Mapping[str, str] | None = None,
 ) -> dict[str, EventFactory]:
-    """Resolve requested merged projectors and their same-build dependencies."""
+    """Return the requested merged projectors and their dependencies in the build."""
 
     available = {"wiki", "irc", "dict", "tiki", "mail", "cll", "grammars"}
     selected = tuple(names or sorted(available))
@@ -375,20 +380,20 @@ def source_factories(
     wiki_dump = load_dump_archive(config.archive) if wants_wiki else None
     if "tiki" in selected and mediawiki_pages is None:
         assert wiki_api_fragments is not None
-        # Tiki's migration map needs the wiki's *current* pages, so it sees the
-        # live fragments of both inputs and not the deleted lineages the export
-        # lets the build rebuild.
+        # The Tiki migration map needs the *current* pages of the wiki. So it
+        # sees the live fragments of both inputs. It does not see the deleted
+        # lineages that the build can rebuild from the export.
         live = [
             *(wiki_dump.fragments if wiki_dump is not None else ()),
             *wiki_api_fragments,
         ]
         mediawiki_pages = mediawiki_pages_from_archive(config, live)
-        # `live` is a second list over the same fragments; the map is built and
-        # it is not needed again.
+        # `live` is a second list of the same fragments. The map is now built,
+        # so the code does not need `live` again.
         del live
 
-    # Inputs live here rather than in a closure, so that handing them to a
-    # projector is the same act as letting go of them.
+    # The inputs are here and not in a closure. So when the code gives them to
+    # a projector, it also releases them.
     held: dict[str, object] = {}
     factories: dict[str, EventFactory] = {}
     if "wiki" in selected:
@@ -406,7 +411,7 @@ def source_factories(
             return wiki_events(config, inputs=inputs, media=media)
 
         factories["wiki"] = wiki_factory
-    # The union is built; the two raw inputs are inside it or discarded.
+    # The union is built. The two raw inputs are inside it, or they are gone.
     wiki_api_fragments = None
     wiki_dump = None
     if "irc" in selected:

@@ -1,4 +1,4 @@
-# scratch and local state (never tracked on either branch)
+# Scratch files and local state. Git never tracks them on either branch.
 /tmp/
 /corpus/
 /.venv/

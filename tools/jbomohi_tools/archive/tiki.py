@@ -1,4 +1,7 @@
-"""Ingest the sanitized Tiki export into the raw archive tier."""
+"""Add the sanitized Tiki export to the raw archive tier.
+
+A sanitized export is one with the secrets removed.
+"""
 
 from __future__ import annotations
 
@@ -40,7 +43,10 @@ def ingest_tiki_export(
     *,
     character_encoding: CharacterEncoding = "latin1-transcoded",
 ) -> TikiIngestReport:
-    """Validate, project, and archive the three sanitized Tiki components."""
+    """Make sure that the three sanitized Tiki files are valid.
+
+    Then project the files and add them to the archive.
+    """
 
     if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", export_date):
         raise ArchiveError("Tiki export date must be YYYY-MM-DD")
@@ -80,10 +86,11 @@ def ingest_tiki_export(
             "Operator supplied an export date only; fetched_at is normalized to midnight UTC.",
         ]
         if name == "tiki-content.sanitized.sql.gz":
-            # The note is provenance (SPEC.md 2.3), so it states what this
-            # component actually is. Asserting a latin1 client over a utf8
-            # export, or local stripping the operator had already done, would
-            # make the manifest evidence for something untrue.
+            # The note is provenance (SPEC.md 2.3), a record of where data came
+            # from. So it states what this component really is. Assume that the
+            # note claims a latin1 client for a utf8 export. Or assume that it
+            # claims local stripping that the operator did before. Then the
+            # manifest is evidence for something that is not true.
             notes.append(
                 f"Holds only {', '.join(sorted(data.tables))}: tiki_forums is "
                 "excluded because it carries forum_password and a plaintext "

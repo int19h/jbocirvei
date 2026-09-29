@@ -79,8 +79,8 @@ class DumpBuilder:
     def render(self, path: Path, *, all_tables: bool = False) -> Path:
         body = bytearray(b"/*!40101 SET NAMES binary */;\n")
         if all_tables:
-            # `archive.wiki_sql` checks the whole requested table list, which is
-            # wider than the set the projector reads.
+            # `archive.wiki_sql` makes sure that every requested table is there.
+            # That list is wider than the set of tables that the projector reads.
             from jbomohi_tools.archive.wiki_sql import WIKI_SQL_TABLES
 
             for table in sorted(WIKI_SQL_TABLES - set(SQL_COLUMNS)):
@@ -139,7 +139,7 @@ def load(builder: DumpBuilder, tmp_path: Path):
 
 
 def _text_gap_rows(dump, revid: int) -> list[str]:
-    """Every `text unresolvable` reason the projector records for one revision."""
+    """The `text unresolvable` reasons that the projector records for one revision."""
 
     from jbomohi_tools.project.wiki import project
 
@@ -278,7 +278,7 @@ def test_content_that_fails_its_digest_is_a_gap_not_text(tmp_path: Path) -> None
     assert revision.text_missing is True
     assert revision.text_cause == "content 2 disagrees with its declared size or SHA-1"
     assert dump.counts["integrity_failures"] == 1
-    # The row is written once, by the projector, from the revision itself.
+    # The projector writes the row once, from the revision itself.
     assert dump.gaps == ()
     assert _text_gap_rows(dump, 101) == [
         "text unresolvable: content 2 disagrees with its declared size or SHA-1"
@@ -332,8 +332,9 @@ def test_revision_deletion_bits_are_honoured(tmp_path: Path) -> None:
     assert revisions[101].content is None and revisions[101].text_hidden is True
     assert revisions[102].comment == "" and revisions[102].comment_hidden is True
     assert revisions[103].user is None and revisions[103].user_hidden is True
-    # Bit 8 masks text, comment and user together; the event still exists, so
-    # the dump and API paths agree by construction rather than by absence.
+    # Bit 8 masks the text, the comment and the user together. The event still
+    # exists. Thus the dump and API paths agree because the code makes them
+    # agree, not because both lack data.
     suppressed = revisions[104]
     assert suppressed.content is None and suppressed.text_hidden is True
     assert suppressed.comment == "" and suppressed.comment_hidden is True
@@ -347,7 +348,7 @@ def test_missing_actor_row_becomes_anonymous_with_a_gap(tmp_path: Path) -> None:
     builder.revision_slot(
         101, builder.content(builder.text(b"import"), payload=b"import")
     )
-    # No `revision_actor_temp` row and `rev_actor` 0: invisible to api.php.
+    # No `revision_actor_temp` row and `rev_actor` 0: api.php does not show it.
     builder.add(
         "revision",
         101,
@@ -432,7 +433,7 @@ def test_temp_tables_fall_back_to_the_direct_columns(tmp_path: Path) -> None:
         None,
     )
     builder.revision_slot(100, builder.content(builder.text(b"y"), payload=b"y"))
-    # A wiki that has run migrateActors.php/migrateComments.php writes here.
+    # A wiki that ran migrateActors.php or migrateComments.php writes here.
     builder.add(
         "revision", 100, 5, 11, 7, b"20140101000000", 0, 0, 1, 0, sha1_base36(b"y")
     )
@@ -539,7 +540,7 @@ def test_move_log_resolves_target_page_id_and_capitalization(tmp_path: Path) -> 
     # ApiQueryLogEvents reports the page that holds the title now, not log_page.
     assert module_move.pageid == 6
     assert module_move.title == "Module:Documentation"
-    # Module is a first-letter namespace, so the typed target is capitalized.
+    # Module is a first-letter namespace, so the code capitalizes the typed target.
     assert (module_move.target_namespace, module_move.target_title) == (
         828,
         "Module:Documentation",
@@ -548,7 +549,7 @@ def test_move_log_resolves_target_page_id_and_capitalization(tmp_path: Path) -> 
 
     main_move = logs[901]
     assert main_move.pageid == 5
-    # The main namespace is case-sensitive on this wiki: no capitalization.
+    # The main namespace is case-sensitive on this wiki, so no capital is added.
     assert (main_move.target_namespace, main_move.target_title) == (0, "lo nu ciska")
     assert main_move.suppress_redirect is False
 
@@ -801,7 +802,7 @@ def test_backfill_rebuilds_a_deleted_lineage_and_its_end(tmp_path: Path) -> None
         (77, 0, "ka nu cilre")
     ]
     assert [r.revid for r in fragments[0].revisions] == [200]
-    # The delete log names page 77 outright, so it bounds that lineage.
+    # The delete log names page 77 directly, so it bounds that lineage.
     assert ended_at == {77: (datetime(2014, 3, 1, tzinfo=UTC), 900)}
     assert unaccounted == set()
     assert gaps == []
@@ -822,7 +823,7 @@ def test_backfill_records_a_lineage_no_log_accounts_for(tmp_path: Path) -> None:
     from jbomohi_tools.project.wiki_sql import archived_fragments
 
     builder = deleted_page_dump(tmp_path)
-    # A second lineage at the same title, with no further deletion to claim.
+    # A second lineage at the same title. No other deletion is left to claim.
     builder.add("comment", 42, 0, b"earlier text", None)
     builder.revision_slot(
         201, builder.content(builder.text(b"earlier"), payload=b"earlier")
@@ -845,8 +846,8 @@ def test_backfill_records_a_lineage_no_log_accounts_for(tmp_path: Path) -> None:
     )
     dump = load(builder, tmp_path)
     fragments, ended_at, unaccounted, gaps = archived_fragments(dump, live={5})
-    # Both lineages are projected; the one no entry accounts for yields its
-    # path to whoever claims it next (SPEC.md 3.2 rule 3).
+    # The code projects both lineages. The lineage that no entry accounts for
+    # yields its path to the next page that claims it (SPEC.md 3.2 rule 3).
     assert sorted(f.pageid for f in fragments) == [77, 78]
     assert set(ended_at) == {77}
     assert unaccounted == {78}
@@ -956,7 +957,7 @@ def test_load_dump_archive_verifies_the_archived_object(tmp_path: Path) -> None:
     assert [f.pageid for f in dump.fragments] == [5]
     assert [a.revision.revid for a in dump.archived] == [200]
 
-    # A manifest whose object no longer hashes to it must not be trusted.
+    # If the object of a manifest no longer hashes to its digest, do not trust it.
     obj = max(
         (
             path
@@ -967,7 +968,7 @@ def test_load_dump_archive_verifies_the_archived_object(tmp_path: Path) -> None:
     )
     obj.chmod(0o644)
     payload = obj.read_bytes()
-    # Same length, different bytes: the size check passes and the digest fails.
+    # Same length, different bytes: the size test passes and the digest fails.
     obj.write_bytes(payload[:-1] + bytes([payload[-1] ^ 0x01]))
     with pytest.raises(WikiSqlParseError, match="does not match manifest"):
         load_dump_archive(archive)
@@ -990,11 +991,11 @@ def test_extra_gaps_reach_the_projected_metadata(tmp_path: Path) -> None:
 
 
 def test_lineage_bound_is_the_last_deletion_of_a_page_id(tmp_path: Path) -> None:
-    """A page deleted, restored and deleted again is bounded at the second.
+    """If a page is deleted, restored and deleted again, the second deletion bounds it.
 
-    `archive` keeps rows up to the last deletion, so that is when the title
-    stopped being this lineage's. Bounding at the first would hide any move
-    made into the title between the two.
+    `archive` keeps rows up to the last deletion. So the title stopped being
+    the title of this lineage at that time. A bound at the first deletion
+    hides any move into the title between the two.
     """
 
     from jbomohi_tools.project.wiki_sql import archived_fragments
@@ -1071,7 +1072,7 @@ def test_lineage_bound_is_the_last_deletion_of_a_page_id(tmp_path: Path) -> None
         0,
     )
     dump = load(builder, tmp_path)
-    # `restore` is not a projected log type, so only the two deletions are kept.
+    # `restore` is not a projected log type, so the code keeps only the deletions.
     assert [(e.logid, e.log_type) for e in dump.logs] == [
         (900, "delete"),
         (902, "delete"),
@@ -1090,8 +1091,9 @@ def test_log_entry_without_an_actor_row_is_unrecorded_not_anonymous(
     from jbomohi_tools.project.wiki import project
 
     builder = baseline()
-    # The page's current title is the move's target, so the title chain can
-    # attribute the rename to it and the projector emits a moved event.
+    # The current title of the page is the target of the move. Thus the title
+    # chain can give the rename to this page, and the projector emits a moved
+    # event.
     original = builder.rows["page"][0]
     builder.rows["page"][0] = (*original[:2], b"lo_nu_ciska", *original[3:])
     builder.add("comment", 30, 0, b"", None)

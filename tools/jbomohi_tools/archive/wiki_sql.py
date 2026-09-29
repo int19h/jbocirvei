@@ -1,4 +1,7 @@
-"""Validate and ingest the sanitized MediaWiki operator export."""
+"""Make sure that the MediaWiki operator export is valid, then archive it.
+
+The export is sanitized. This means that it holds no private tables.
+"""
 
 from __future__ import annotations
 
@@ -197,7 +200,7 @@ def inspect_wiki_sql_export(export_directory: Path) -> WikiSqlInventory:
 def ingest_wiki_sql_export(
     archive: Path, export_directory: Path, export_date: str
 ) -> WikiSqlIngestReport:
-    """Validate then archive the two sanitized MediaWiki export components."""
+    """Make sure that both parts of the export are valid, then archive them."""
 
     if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", export_date):
         raise ArchiveError("MediaWiki export date must be YYYY-MM-DD")

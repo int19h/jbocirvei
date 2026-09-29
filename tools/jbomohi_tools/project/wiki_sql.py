@@ -1,22 +1,25 @@
 """Decode the MediaWiki 1.38 SQL export into the neutral wiki model.
 
-SPEC.md section 3.2 gives the wiki two inputs: this one-time operator export and
-the incremental `api.php` crawl, and requires that the projector produce the
-same events from either for every revision and log entry both can see. The
-export additionally holds material the API structurally cannot serve, and this
-module is where that asymmetry is made explicit rather than silently absorbed:
+The neutral wiki model is the set of data classes that both inputs share.
+SPEC.md section 3.2 gives the wiki two inputs. One is this one-time export from
+the site operator. The other is the incremental `api.php` crawl. For each
+revision and log entry that both inputs hold, the projector must make the same
+events from either input. The export also holds material that the API cannot
+serve by its design. This module states that difference openly and does not
+hide it:
 
 * MediaWiki 1.38 runs `$wgActorTableSchemaMigrationStage = SCHEMA_COMPAT_TEMP`,
-  so `RevisionStore` inner-joins `revision_actor_temp`. A revision with no row
-  there is invisible to `api.php` however well-formed it is, and `list=logevents`
-  hides a log entry whose `log_actor` names no `actor` row the same way. Both
-  happen in this database, so the export is a strict superset in the shared
-  range, never a disagreement with it.
+  so `RevisionStore` inner-joins `revision_actor_temp`. If a revision has no
+  row there, `api.php` does not show it, even when the revision is well formed.
+  In the same way, `list=logevents` hides a log entry whose `log_actor` names
+  no `actor` row. Both cases occur in this database. Thus, in the range that
+  both inputs cover, the export holds all that the API holds, and more. It
+  never disagrees with the API.
 * `archive` holds revisions of deleted pages that the public API refuses.
 
-Every such row is projected where the SPEC allows and recorded in
-`_meta/wiki/gaps.csv` where it does not. Nothing is guessed: an unresolvable
-join produces a gap, not an invented value.
+The module projects each such row where the SPEC allows it. Where the SPEC does
+not allow it, the module records the row in `_meta/wiki/gaps.csv`. The module
+never guesses: a join that it cannot resolve gives a gap, not an invented value.
 """
 
 from __future__ import annotations
@@ -41,7 +44,7 @@ from .wiki import (
 
 _BASE36 = "0123456789abcdefghijklmnopqrstuvwxyz"
 _ANONYMOUS_AUTHOR_REASON = "imported revision; author not recorded in the export"
-# MediaWiki's own rendering of an actor row with no usable name.
+# The name that MediaWiki itself shows for an actor row with no usable name.
 UNKNOWN_USER = "Unknown user"
 
 SQL_COLUMNS: dict[str, tuple[str, ...]] = {
@@ -122,11 +125,12 @@ SQL_COLUMNS: dict[str, tuple[str, ...]] = {
     "text": ("old_id", "old_text", "old_flags"),
 }
 
-# Canonical namespace prefixes exactly as the live `siteinfo` reports them
-# (SPEC.md section 3.2 projects the same set). A page or log row in any other
-# namespace belongs to an extension this wiki no longer loads: MediaWiki cannot
-# name such a title and renders it `Special:Badtitle/NS<id>:<text>`, which is
-# what the archived API responses contain, so the dump path says the same.
+# The canonical namespace prefixes, exactly as the live `siteinfo` reports
+# them. SPEC.md section 3.2 projects the same set. A page or log row in any
+# other namespace belongs to an extension that this wiki no longer loads.
+# MediaWiki cannot name such a title, so it renders it as
+# `Special:Badtitle/NS<id>:<text>`. The archived API responses contain that
+# form, so the dump path uses it too.
 NAMESPACE_PREFIXES: dict[int, str] = {
     -2: "Media",
     -1: "Special",
@@ -153,17 +157,18 @@ NAMESPACE_PREFIXES: dict[int, str] = {
     828: "Module",
     829: "Module talk",
 }
-# Local names differ from canonical ones for the project namespace, and the
-# file namespace keeps its historical alias; both are accepted title prefixes.
+# For the project namespace, the local names differ from the canonical ones.
+# The file namespace keeps its historical alias. Both are accepted title
+# prefixes.
 NAMESPACE_ALIASES = {
     "Project": 4,
     "Project talk": 5,
     "Image": 6,
     "Image talk": 7,
 }
-# `siprop=namespaces` reports `case` per namespace: this wiki runs
-# `$wgCapitalLinks = false` with first-letter overrides for exactly these,
-# so a title elsewhere keeps the case it was typed in.
+# `siprop=namespaces` reports `case` for each namespace. This wiki runs
+# `$wgCapitalLinks = false`, with first-letter overrides for exactly these
+# namespaces. A title in any other namespace keeps the case that the user typed.
 FIRST_LETTER_NAMESPACES = frozenset({-1, 2, 3, 8, 9, 10, 11, 828, 829})
 # MediaWiki matches a namespace prefix case-insensitively, so `user talk:foo`
 # names the same namespace as `User talk:Foo`.
@@ -174,7 +179,8 @@ PREFIX_NAMESPACES = {
 } | {alias.lower(): namespace for alias, namespace in NAMESPACE_ALIASES.items()}
 
 
-# `rev_deleted` / `ar_deleted` bits, includes/Revision/RevisionRecord.php:53-58.
+# The bits of `rev_deleted` and `ar_deleted`, from
+# includes/Revision/RevisionRecord.php:53-58.
 DELETED_TEXT = 1
 DELETED_COMMENT = 2
 DELETED_USER = 4
@@ -182,11 +188,11 @@ DELETED_RESTRICTED = 8
 
 
 class WikiSqlParseError(ValueError):
-    """The sanitized SQL export cannot be decoded without guessing."""
+    """The code cannot decode the sanitized SQL export without a guess."""
 
 
 class WikiSqlTextMissing(WikiSqlParseError):
-    """A historical text pointer is dangling in the source database."""
+    """A historical text pointer in the source database points to no row."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,7 +203,7 @@ class PhpObject:
 
 @dataclass(frozen=True, slots=True)
 class WikiSqlGap:
-    """One row the export could not project, destined for `gaps.csv`."""
+    """One row that the export cannot project. The row goes into `gaps.csv`."""
 
     revid: int | None
     logid: int | None
@@ -223,7 +229,7 @@ class WikiSqlGap:
 
 @dataclass(frozen=True, slots=True)
 class WikiArchivedRevision:
-    """One `archive` row: a revision of a page the wiki has since deleted."""
+    """One `archive` row: a revision of a page that the wiki deleted later."""
 
     archive_id: int
     pageid: int | None
@@ -239,16 +245,17 @@ class WikiSqlDump:
     archived: tuple[WikiArchivedRevision, ...]
     gaps: tuple[WikiSqlGap, ...]
     counts: Mapping[str, int]
-    # `logging.log_page` names the page a deletion removed, which is the only
-    # unambiguous link from a deleted lineage to the log entry that ended it:
-    # several lineages can share one title over time. It is kept apart from
-    # `logs` because `WikiLogEvent.pageid` carries what the API reports there,
-    # which is the page holding that title now.
+    # `logging.log_page` names the page that a deletion removed. A lineage is
+    # the chain of revisions of one page id. Several lineages can share one
+    # title over time. Thus `log_page` is the only clear link from a deleted
+    # lineage to the log entry that ended it. The code keeps it apart from
+    # `logs`, because `WikiLogEvent.pageid` holds what the API reports there.
+    # That value is the page that holds the title now.
     deleted_page_logs: Mapping[int, tuple[datetime, int]] = field(default_factory=dict)
 
 
 class _PhpParser:
-    """Strict reader for the subset of `serialize()` HistoryBlobs use."""
+    """A strict reader for the part of PHP `serialize()` that HistoryBlobs use."""
 
     def __init__(self, payload: bytes, context: str) -> None:
         self.payload = payload
@@ -367,9 +374,9 @@ def _required_integer(value: bytes | None, context: str) -> int:
 
 
 def _revision_length(value: bytes | None, context: str) -> int:
-    """Read `rev_len`/`ar_len`, which is NULL for 247 rows in this database.
+    """Read `rev_len` or `ar_len`. The value is NULL for 247 rows in this database.
 
-    `api.php` serializes a NULL length as 0, so the dump path reports 0 too and
+    `api.php` serializes a NULL length as 0. The dump path also reports 0, so
     the two inputs agree on `_meta/wiki/revisions.csv`.
     """
 
@@ -410,7 +417,7 @@ def _base36_to_sha1(value: bytes | None, context: str) -> str | None:
 
 
 def sha1_base36(payload: bytes) -> str:
-    """Render a SHA-1 the way `content_sha1` stores it (31 base-36 digits)."""
+    """Render a SHA-1 in the form that `content_sha1` stores (31 base-36 digits)."""
 
     number = int(hashlib.sha1(payload).hexdigest(), 16)
     digits: list[str] = []
@@ -431,7 +438,7 @@ def _ucfirst(namespace: int, value: str) -> str:
 
 
 def render_title(namespace: int, text: str) -> str:
-    """Render a namespace and title text as Title::getPrefixedText would."""
+    """Render a namespace and title text in the same way as Title::getPrefixedText."""
 
     prefix = NAMESPACE_PREFIXES.get(namespace)
     if prefix is None:
@@ -440,19 +447,19 @@ def render_title(namespace: int, text: str) -> str:
 
 
 def full_title(namespace: int, db_key: bytes | None, context: str) -> str:
-    """Render `ns` + DB key the way `api.php` renders a full page title."""
+    """Render `ns` and a DB key in the same way as `api.php` renders a full title."""
 
     return render_title(namespace, _text(db_key, context).replace("_", " "))
 
 
 def parse_title(value: str, context: str) -> tuple[int, str]:
-    """Resolve a free-text move target as Title::newFromText would.
+    """Resolve a free-text move target in the same way as Title::newFromText.
 
-    `log_params['4::target']` holds the target as the mover typed it, so the
-    namespace prefix has to be recognized and the remainder capitalized before
-    it can be compared with what the API reports. A prefix the wiki no longer
-    registers is not a namespace at all: the whole string stays a main-namespace
-    title, which is what the archived responses show.
+    `log_params['4::target']` holds the target as the mover typed it. Before the
+    code can compare it with what the API reports, it must find the namespace
+    prefix and capitalize the rest. If the wiki no longer registers a prefix,
+    that prefix is not a namespace. The whole string then stays a title in the
+    main namespace, as the archived responses show.
     """
 
     text = " ".join(value.replace("_", " ").split())
@@ -472,7 +479,7 @@ def parse_title(value: str, context: str) -> tuple[int, str]:
 
 
 class _TextStore:
-    """Resolve `content_address` -> `text` -> decoded bytes, per SPEC 3.2."""
+    """Resolve `content_address` to a `text` row, then to decoded bytes (SPEC 3.2)."""
 
     def __init__(self, rows: Iterable[tuple[bytes | None, ...]]) -> None:
         self.rows: dict[int, tuple[bytes, frozenset[str]]] = {}
@@ -490,7 +497,9 @@ class _TextStore:
                     f"text row {old_id}: flags are not ASCII"
                 ) from exc
             if "error" in flags:
-                raise WikiSqlParseError(f"text row {old_id}: poisoned by `error` flag")
+                raise WikiSqlParseError(
+                    f"text row {old_id}: marked bad by the `error` flag"
+                )
             if "external" in flags:
                 raise WikiSqlParseError(
                     f"text row {old_id}: external store is absent from this export"
@@ -590,7 +599,7 @@ class _TextStore:
 def _load_tables(
     path: Path, expected: Mapping[str, Sequence[str]] = SQL_COLUMNS
 ) -> dict[str, list[tuple[bytes | None, ...]]]:
-    """Stream the export once, keeping only the tables the projector needs."""
+    """Read the export once. Keep only the tables that the projector needs."""
 
     wanted = {name: tuple(columns) for name, columns in expected.items()}
     rows: dict[str, list[tuple[bytes | None, ...]]] = {name: [] for name in wanted}
@@ -615,8 +624,8 @@ def _load_tables(
         )
         if len(values) != len(columns):
             raise WikiSqlParseError(
-                f"MediaWiki SQL has {len(values)} values for {statement.table}; "
-                f"expected {len(columns)}"
+                f"MediaWiki SQL has {len(values)} values for {statement.table}, "
+                f"but expected {len(columns)}"
             )
         rows[statement.table].append(values)
     missing = sorted(wanted.keys() - schemas)
@@ -644,15 +653,16 @@ def _unique_map(
 
 
 def _log_params(payload: bytes | None, context: str) -> dict[bytes | int, object]:
-    """Decode `log_params`, tolerating the pre-1.21 positional form."""
+    """Decode `log_params`. Also accept the positional form from before 1.21."""
 
     if payload is None or payload == b"":
         return {}
     if not payload.startswith(b"a:"):
-        # DatabaseLogEntry.php:182-194: a pre-1.21 entry is a newline-separated
-        # positional list. Anything that claims to be a serialized array must
-        # parse as one; silently reinterpreting a broken array would make its
-        # first line the move target.
+        # DatabaseLogEntry.php:182-194: an entry from before 1.21 is a
+        # positional list, with one value on each line. A value that claims to
+        # be a serialized array must parse as one. The code must not quietly
+        # read a broken array as a list, because its first line then becomes
+        # the move target.
         return {
             index: part
             for index, part in enumerate(payload.split(b"\n"))
@@ -665,7 +675,7 @@ def _log_params(payload: bytes | None, context: str) -> dict[bytes | int, object
 
 
 def _php_flag(value: object, context: str) -> bool:
-    """Read a MediaWiki log flag, which serializes as "0"/"1" or an integer."""
+    """Read a MediaWiki log flag. It serializes as "0" or "1", or as an integer."""
 
     if value is None:
         return False
@@ -679,7 +689,7 @@ def _php_flag(value: object, context: str) -> bool:
 
 
 def load_wiki_sql_dump(path: Path) -> WikiSqlDump:
-    """Decode live pages, move/delete logs and deleted revisions from the export."""
+    """Decode live pages, move and delete logs, and deleted revisions."""
 
     rows = _load_tables(path)
     gaps: list[WikiSqlGap] = []
@@ -736,8 +746,9 @@ def load_wiki_sql_dump(path: Path) -> WikiSqlDump:
             raise WikiSqlParseError(
                 f"content {content_id} has unknown model {model_id}"
             )
-        # SqlBlobStore.php:699-722: 1.38 writes only `tt:<old_id>`, optionally
-        # with a query part. `bad:` and external-store addresses fail closed.
+        # SqlBlobStore.php:699-722: 1.38 writes only `tt:<old_id>`, with or
+        # without a query part. An address with `bad:` or to an external store
+        # stops the load with an error.
         matched = re.fullmatch(rb"tt:([0-9]+)(?:\?[^\s]*)?", row[4])
         if matched is None:
             raise WikiSqlParseError(
@@ -764,24 +775,27 @@ def load_wiki_sql_dump(path: Path) -> WikiSqlDump:
     ) -> WikiRevision | None:
         nonlocal unresolved_authors, integrity_failures
         if deleted & DELETED_RESTRICTED:
-            # SPEC.md 3.2: oversighted material is never written, but the event
-            # still exists. Bit 8 masks text, comment and user together, which
-            # is what the API path does with the same revision, so the two
-            # paths agree by construction rather than by absence.
+            # SPEC.md 3.2: the corpus never holds oversighted material (hidden
+            # even from administrators), but the event still exists. Bit 8
+            # masks the text, the comment and the user together. The API path
+            # does the same with this revision. Thus the two paths agree
+            # because the code makes them agree, not because both lack data.
             deleted |= DELETED_TEXT | DELETED_COMMENT | DELETED_USER
             gaps.append(WikiSqlGap(revid, None, pageid, title, timestamp, "suppressed"))
         user = actors.get(actor_id)
         unrecorded_author = False
         if user == "":
             # One actor row in this database has an empty `actor_name` and a
-            # NULL `actor_user`. MediaWiki publishes that as `Unknown user`, so
-            # the dump path says what the API path has already written into the
-            # corpus rather than inventing a second spelling for one broken row.
+            # NULL `actor_user`. MediaWiki publishes that row as `Unknown user`.
+            # The API path already wrote that name into the corpus. The dump
+            # path writes the same name, and does not invent a second spelling
+            # for one broken row.
             user = UNKNOWN_USER
         if user is None:
-            # 1.38 hides these from api.php entirely (module docstring); the
-            # export keeps the content but records no recoverable author, which
-            # SPEC.md 2.5 attributes to `unrecorded@`, never `anonymous@`.
+            # 1.38 hides these revisions from api.php completely (see the
+            # module docstring). The export keeps the content, but it records
+            # no author that the code can recover. SPEC.md 2.5 gives such a
+            # revision to `unrecorded@`, never to `anonymous@`.
             unrecorded_author = True
             unresolved_authors += 1
             gaps.append(
@@ -815,9 +829,9 @@ def load_wiki_sql_dump(path: Path) -> WikiSqlDump:
                     sha1_base36(payload).encode("ascii") != content_sha1
                     or len(payload) != content_size
                 ):
-                    # The stored digest is the authority (SPEC.md 3.2);
-                    # a row that disagrees with it is evidence of corruption,
-                    # not text to publish.
+                    # The stored digest is the authority (SPEC.md 3.2). A
+                    # row that disagrees with it shows corruption. It is not
+                    # text to publish.
                     integrity_failures += 1
                     text_missing = True
                     text_cause = (
@@ -844,8 +858,8 @@ def load_wiki_sql_dump(path: Path) -> WikiSqlDump:
         )
 
     pages: dict[int, tuple[int, str, bool]] = {}
-    # ApiQueryLogEvents LEFT JOINs `page` on (log_namespace, log_title) and
-    # reports that current id, never the historical `log_page`, so the dump
+    # ApiQueryLogEvents LEFT JOINs `page` on (log_namespace, log_title). It
+    # reports the current page id, never the historical `log_page`. The dump
     # needs the same index to agree with the archived responses.
     page_ids: dict[tuple[int, bytes], int] = {}
     for row in rows["page"]:
@@ -890,8 +904,9 @@ def load_wiki_sql_dump(path: Path) -> WikiSqlDump:
         pageid = _required_integer(row[1], "revision.rev_page")
         identity = pages.get(pageid)
         if identity is None:
-            # A revision whose page row is gone: unplaceable, and invisible to
-            # api.php as well, so it is recorded and dropped.
+            # The page row of this revision is gone. The code cannot place the
+            # revision, and api.php does not show it either. The code records
+            # the revision and drops it.
             orphan_revisions += 1
             gaps.append(
                 WikiSqlGap(
@@ -968,8 +983,8 @@ def load_wiki_sql_dump(path: Path) -> WikiSqlDump:
         current_pageid = page_ids.get((namespace, row[6]), 0)
         deleted = _required_integer(row[10], "logging.log_deleted")
         if deleted:
-            # LogPage.php:39-42 reuses the revision-deletion bits; a hidden log
-            # entry is recorded, never reconstructed.
+            # LogPage.php:39-42 uses the same deletion bits as revisions. The
+            # code records a hidden log entry and never rebuilds it.
             gaps.append(
                 WikiSqlGap(
                     None,
@@ -987,8 +1002,9 @@ def load_wiki_sql_dump(path: Path) -> WikiSqlDump:
         if user == "":
             user = UNKNOWN_USER
         if user is None:
-            # Same "the source records nobody" case as an actor-less revision:
-            # SPEC.md 2.5 attributes it to `unrecorded@`, never `anonymous@`.
+            # This is the same "the source records nobody" case as a revision
+            # with no actor. SPEC.md 2.5 gives it to `unrecorded@`, never to
+            # `anonymous@`.
             log_author_unrecorded = True
             hidden_log_actors += 1
             gaps.append(
@@ -1007,9 +1023,10 @@ def load_wiki_sql_dump(path: Path) -> WikiSqlDump:
             raise WikiSqlParseError(f"log event {logid} references absent comment")
         logged_page = _integer(row[7], "logging.log_page", optional=True) or 0
         if log_type == "delete" and logged_page:
-            # A page deleted, restored and deleted again has `archive` rows up
-            # to the *last* deletion, so that is when its title stopped being
-            # its own. Bounding at the first would hide a move made in between.
+            # If a page was deleted, restored and deleted again, it has
+            # `archive` rows up to the *last* deletion. So its title stopped
+            # being its own at that time. A bound at the first deletion hides
+            # any move made between the two.
             previous = deleted_page_logs.get(logged_page)
             entry = (timestamp, logid)
             if previous is None or entry > previous:
@@ -1101,7 +1118,7 @@ def load_wiki_sql_dump(path: Path) -> WikiSqlDump:
 
 
 def load_dump_archive(archive: Path) -> WikiSqlDump | None:
-    """Load the ingested operator export, or None when none was ingested."""
+    """Load the operator export from the archive. If there is none, return None."""
 
     root = archive / "manifests" / "wiki" / "db-export"
     if not root.exists():
@@ -1142,26 +1159,30 @@ def archived_fragments(
     set[int],
     list[WikiSqlGap],
 ]:
-    """Rebuild the deleted lineages `archive` holds, one fragment per page id.
+    """Rebuild the deleted lineages that `archive` holds, one fragment per page id.
 
-    SPEC.md 3.2 lets a deletion be projected only for a page whose history the
-    projection already holds, so this backfill is what turns a `deleted; history
-    not API-accessible` gap into a real `Event: deleted`. Each lineage must be
-    matched to the single log entry that ended it, because one title can belong
-    to several lineages in turn and a lineage the corpus never removes would
-    still hold its path when the next page claims it:
+    A lineage is the chain of revisions of one page id. SPEC.md 3.2 lets the
+    projector project a deletion only for a page whose history it already holds.
+    Thus this backfill turns a `deleted; history not API-accessible` gap into a
+    real `Event: deleted`. One title can belong to several lineages, one after
+    the other. If the corpus never removes a lineage, that lineage still holds
+    its path when the next page claims it. Thus the code must match each
+    lineage to the one log entry that ended it:
 
-    1. `logging.log_page` names the deleted page outright; that link wins.
-    2. Otherwise the remaining entries for the title, deletions and the
-       `move_redir` moves that overwrite it, are assigned to the remaining
-       lineages in time order, each entry used once.
-    3. A lineage left without an entry is still projected, with no bound on
-       when it stopped holding its title: SPEC.md 3.2 rule 3 says it yields its
-       path to the next page that claims it rather than being refused.
+    1. If `logging.log_page` names the deleted page, that link wins.
+    2. If not, the code gives the remaining entries for the title to the
+       remaining lineages in time order, and uses each entry once. These
+       entries are the deletions and the `move_redir` moves that overwrite
+       the title.
+    3. The code still projects a lineage that gets no entry. Nothing bounds
+       the time when that lineage stopped holding its title. SPEC.md 3.2
+       rule 3 says that such a lineage yields its path to the next page that
+       claims it. The projector does not refuse it.
 
-    MediaWiki keeps `ar_page_id` when it archives revisions and reuses that id
-    for a later page, so a lineage whose id a live page now owns cannot be told
-    apart from it by page id alone and is recorded as well.
+    MediaWiki keeps `ar_page_id` when it archives revisions, and it reuses that
+    id for a later page. If a live page now owns the id of a lineage, the page
+    id alone cannot tell the two apart. The code records such a lineage as a
+    gap too.
     """
 
     live_ids = set(live)
@@ -1195,7 +1216,7 @@ def archived_fragments(
             for row in rows
         )
 
-    # Candidate lineages, and the entries that could have ended each title.
+    # The candidate lineages, and the log entries that can end each title.
     lineages: dict[int, tuple[int, str, tuple[WikiRevision, ...]]] = {}
     for pageid in sorted(grouped):
         rows = grouped[pageid]
@@ -1281,7 +1302,7 @@ def archived_fragments(
 
 @dataclass(frozen=True, slots=True)
 class WikiProjectorInputs:
-    """Everything `project.wiki.project` needs, from both inputs at once."""
+    """All that `project.wiki.project` needs, from both inputs together."""
 
     fragments: list[WikiPageFragment]
     logs: list[WikiLogEvent]
@@ -1298,14 +1319,15 @@ def combine_inputs(
     *,
     backfill_deleted: bool = True,
 ) -> WikiProjectorInputs:
-    """Union the export with the API crawl, refusing any real disagreement.
+    """Join the export and the API crawl. Refuse any real disagreement.
 
-    Both inputs describe one wiki, so a revision or log entry they share must be
-    identical; `merge_fragments` already enforces that for revisions, and this
-    does it for log entries, which are keyed by `logid` rather than merged.
+    Both inputs describe one wiki. Thus a revision or log entry that both hold
+    must be identical. `merge_fragments` already makes sure that this is true
+    for revisions. This function does it for log entries. It keys them by
+    `logid` and does not merge them.
 
-    `backfill_deleted` adds the `archive` lineages, which is what turns a
-    `deleted; history not API-accessible` gap into a real `Event: deleted`.
+    `backfill_deleted` adds the `archive` lineages. They turn a `deleted;
+    history not API-accessible` gap into a real `Event: deleted`.
     """
 
     if dump is None:

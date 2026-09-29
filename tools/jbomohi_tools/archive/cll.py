@@ -1,4 +1,7 @@
-"""Bare-mirror acquisition for the Complete Lojban Language sources."""
+"""Get the sources of The Complete Lojban Language as a bare mirror.
+
+A bare mirror is a git clone with all refs and no working tree.
+"""
 
 from __future__ import annotations
 
@@ -32,7 +35,7 @@ DYNAMIC_TAGS = (
 
 
 class CllFetchError(ArchiveError):
-    """The CLL mirror could not be acquired without ambiguity."""
+    """The code was not able to get the CLL mirror with one clear result."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,7 +54,7 @@ def _peel(mirror: Path, ref: str) -> str:
     )
     object_id = result.stdout.strip()
     if result.returncode != 0 or not GIT_OBJECT_ID.fullmatch(object_id):
-        raise CllFetchError(f"CLL mirror lacks commit ref {ref!r}")
+        raise CllFetchError(f"CLL mirror has no commit ref {ref!r}")
     return object_id
 
 
@@ -76,7 +79,11 @@ def fetch(
     dynamic_tags: Sequence[re.Pattern[str]] = DYNAMIC_TAGS,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
 ) -> CllFetchReport:
-    """Clone or refresh the bare fork mirror and archive its scoped ref state."""
+    """Clone or update the bare mirror of the fork.
+
+    Then archive the state of its scoped refs. A scoped ref is a ref that the
+    record includes.
+    """
 
     mirror = archive / "git" / "cll.git"
     mirror.parent.mkdir(parents=True, exist_ok=True)

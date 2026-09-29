@@ -63,11 +63,11 @@ def test_render_rejects_bom_and_crlf_templates(tmp_path: Path, content: bytes) -
 
 
 def test_every_projector_falls_back_to_the_untitled_placeholder() -> None:
-    """SPEC.md 3.1: a subject is one non-empty line, never an invented one.
+    """SPEC.md 3.1: a subject is one non-empty line, and never an invented one.
 
-    No source on today's archive produces an empty title, so this is insurance
-    for the next input rather than a fix for present data; that is exactly why
-    it is worth pinning.
+    No source in the current archive gives an empty title. So this test does
+    not correct a fault in the present data. It protects against the next
+    input, and that is the reason to pin it.
     """
 
     from jbomohi_tools.git import UNTITLED
@@ -106,11 +106,11 @@ def _corpus_with(tmp_path: Path, *present: str) -> Path:
 def test_layout_says_which_directories_this_snapshot_actually_has(
     tmp_path: Path,
 ) -> None:
-    """The map used to be a fixed list, so it promised directories that were absent.
+    """The map was once a fixed list, so it promised directories that were absent.
 
-    The 2026-09-16 corpus had no `irc/`, `who/`, `notes/`, `loglan/` or `llg/`,
-    and the layout described all five as present — while `AGENTS.md` used an
-    IRC citation as its worked example.
+    The 2026-09-16 corpus had no `irc/`, `who/`, `notes/`, `loglan/` or `llg/`.
+    But the layout described all five as present. At the same time, `AGENTS.md`
+    used an IRC citation as its worked example.
     """
 
     corpus = _corpus_with(tmp_path, "wiki", "mail")
@@ -118,24 +118,24 @@ def test_layout_says_which_directories_this_snapshot_actually_has(
 
     for line in summary.splitlines():
         absent = "Not yet in this snapshot" in line
-        if line.startswith(("- **`wiki/`**", "- **`mail/`**")):
+        if line.startswith(("- `wiki/`:", "- `mail/`:")):
             assert not absent, line
-        elif line.startswith(("- **`irc/`**", "- **`who/`**", "- **`notes/`**")):
+        elif line.startswith(("- `irc/`:", "- `who/`:", "- `notes/`:")):
             assert absent, line
-    # The map still describes what a directory holds, present or not, because a
-    # reader asking "where would IRC be" deserves an answer.
-    assert "channel-day" in summary
+    # The map still describes what a directory holds, present or not. A reader
+    # who asks "where is IRC" must get an answer.
+    assert "for each channel and day" in summary
     assert "wikitext" in summary
 
 
 def test_coverage_counts_a_source_even_when_its_coverage_file_has_no_counters(
     tmp_path: Path,
 ) -> None:
-    """The wiki's coverage.toml holds only [additive.*] tables and no integers.
+    """The coverage.toml of the wiki holds only [additive.*] tables and no integers.
 
-    The old renderer printed every top-level integer of every coverage file, so
-    the wiki — the largest single source after the dictionary — rendered as an
-    empty entry, and the reader was told nothing at all about it.
+    The old renderer printed every top-level integer of every coverage file. So
+    the wiki rendered as an empty entry, and the reader learned nothing about
+    it. The wiki is the largest single source after the dictionary.
     """
 
     corpus = _corpus_with(tmp_path, "wiki")
@@ -151,7 +151,7 @@ def test_coverage_counts_a_source_even_when_its_coverage_file_has_no_counters(
     table = coverage_table(corpus, {"wiki": tally})
 
     assert "| `wiki/` | 2 | 2005–2026 |" in table
-    assert "Total: **2** source events." in table
+    assert "Total: 2 source events." in table
 
 
 def test_coverage_reports_the_gaps_a_source_recorded_about_itself(
@@ -172,9 +172,10 @@ def test_coverage_reports_the_gaps_a_source_recorded_about_itself(
 
     table = coverage_table(corpus, {"mail/lojban-list": tally})
 
-    assert "2 gaps recorded in `mail/gaps.csv`" in table
-    assert "archives known incomplete: lojban-list" in table
-    assert "9 unusable date headers" in table
+    assert "`_meta/mail/gaps.csv` lists 2 gaps." in table
+    assert 'The most common reasons are "b" (1) and "d" (1).' in table
+    assert "Known incomplete archives: lojban-list." in table
+    assert "9 date headers are unusable." in table
     # Lists are one source to a reader, so they are one row.
     assert table.count("| `mail/`") == 1
 
@@ -183,12 +184,13 @@ CITATION = re.compile(r"^(?P<path>[^@\s]+)@(?P<id>.+?):L\d+(?:-\d+)?$")
 
 
 def test_every_citation_example_is_shaped_like_a_citation() -> None:
-    """The examples are the first thing a reader copies, so they must resolve.
+    """A reader copies the examples first, so each example must resolve.
 
-    An earlier draft used invented paths and an invented Message-ID. Nobody
-    notices until someone tries one, and then the document has taught them the
-    repository is broken. These are checked against the built corpus by hand
-    and pinned here by shape and by the index files that resolve them.
+    An earlier draft used invented paths and an invented Message-ID. Nobody sees
+    this fault until someone tries an example. Then the document teaches the
+    reader that the repository is broken. A person checked these examples
+    against the built corpus by hand. This test pins them by their shape and by
+    the index files that resolve them.
     """
 
     template = (
@@ -206,15 +208,15 @@ def test_every_citation_example_is_shaped_like_a_citation() -> None:
         path = match.group("path")
         by_source[path.split("/", 1)[0]] = match.group("id")
 
-    # One worked example per source a reader is likely to start from.
+    # One worked example for each source where a reader probably starts.
     assert {"wiki", "mail", "dict", "cll", "irc", "tiki"} <= set(by_source)
-    # Each id is in the grammar the same document defines.
+    # Each id follows the grammar that the same document defines.
     assert by_source["wiki"].startswith("revid=")
     assert by_source["mail"].startswith("<") and by_source["mail"].endswith(">")
     assert by_source["dict"].startswith("definition=")
     assert by_source["cll"].startswith("cll=")
     assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", by_source["irc"])
-    # A Source-Id may itself contain "@"; the path ends at the first one.
+    # A Source-Id can itself contain "@". The path ends at the first "@".
     assert by_source["tiki"].startswith("tiki=") and "@" in by_source["tiki"]
 
 
@@ -232,8 +234,11 @@ def test_a_short_fetch_and_a_short_record_read_differently(tmp_path: Path) -> No
 
     table = coverage_table(corpus, {"irc/lojban": tally})
 
-    assert "951 files the upstream listed but this archive does not hold" in table
-    # And a complete fetch says nothing, rather than saying zero.
+    assert (
+        "The upstream site (the origin of the source) listed 951 files that this "
+        "archive does not hold." in table
+    )
+    # A complete fetch adds no note. It does not say zero.
     (root / "coverage.toml").write_text(
         "days = 10\n\n[archive]\nfiles_listed_but_not_archived = 0\n", encoding="utf-8"
     )
@@ -250,27 +255,27 @@ def _templates() -> dict[str, str]:
 
 
 def test_the_three_files_do_not_repeat_each_other() -> None:
-    """Each fact belongs in one file; the others point at it.
+    """Each fact belongs in one file. The other files point to it.
 
-    The citation grammar was in two files and had already drifted into two
-    spellings, and the rules file carried a compressed copy of a contract it
-    could not keep in step with.
+    The citation grammar was in two files, and the two copies already had two
+    different spellings. Also, the rules file carried a short copy of a
+    contract, and nothing kept that copy the same as the contract.
     """
 
     files = _templates()
-    # The grammar itself lives only in AGENTS.md.
+    # The grammar itself is only in AGENTS.md.
     grammar = "<path>@<Source-Id>:L<start>"
     assert grammar in files["AGENTS.md"]
     assert grammar not in files["rules"]
-    # The rules file points rather than restates.
+    # The rules file points to AGENTS.md. It does not repeat it.
     assert "AGENTS.md" in files["rules"]
     assert len(files["rules"].splitlines()) < 25, "the rules file is a pointer"
-    # The synthetic-address list is worded once, not twice differently.
+    # The list of synthetic addresses has one wording, in one place.
     assert files["README.md"].count("irclogs@irc.lojban.org") == 1
 
 
 def test_the_tools_branch_pointer_is_one_sentence_at_the_end() -> None:
-    """The human partner's rule: a brief mention, not a section, and not early."""
+    """The rule of the human partner: a short mention, not a section, not early."""
 
     for name, text in (("AGENTS.md", None), ("README.md", None)):
         body = _templates()[name]
@@ -280,7 +285,7 @@ def test_the_tools_branch_pointer_is_one_sentence_at_the_end() -> None:
 
 
 def test_no_development_or_coordination_content_reaches_main() -> None:
-    """These files ship to readers of the corpus, not to its maintainers."""
+    """These files go to the readers of the corpus, not to its maintainers."""
 
     banned = ("herdr", "collab", "pull request", "worktree", "pytest", "uv run")
     for name, text in _templates().items():
@@ -290,12 +295,12 @@ def test_no_development_or_coordination_content_reaches_main() -> None:
 
 
 def test_every_citation_example_resolves_in_the_corpus() -> None:
-    """Shape is not resolution, and checking shape is how a broken one got in.
+    """A correct shape is not enough, and a shape check let a broken example in.
 
-    A Tiki example was added with an invented version number and a sibling test
-    that checked the grammar it was written in. It parsed perfectly and pointed
-    at nothing. This resolves each example against a real corpus when one is
-    configured, which is the only check that would have caught it.
+    Someone added a Tiki example with an invented version number. A sibling test
+    checked only the grammar of the example. The example parsed with no error,
+    but it pointed at nothing. If JBOMOHI_CORPUS names a real corpus, this test
+    resolves each example against it. No other check catches that fault.
     """
 
     corpus = os.environ.get("JBOMOHI_CORPUS")
@@ -317,10 +322,10 @@ def test_every_citation_example_resolves_in_the_corpus() -> None:
         first = int(span.split("-", 1)[0])
         target = root / path
         if not (root / path.split("/", 1)[0]).is_dir():
-            # A source this snapshot does not carry yet, such as irc/ before
-            # its first fetch. Skipping the whole directory is honest; skipping
-            # a missing file inside a present one would hide the bug this test
-            # exists for.
+            # The snapshot does not have this source yet, for example irc/
+            # before its first fetch. To skip the whole directory is honest. But
+            # to skip a missing file inside a present directory hides the fault
+            # that this test looks for.
             continue
         if not target.is_file():
             unresolved.append(f"{path}: no such file in the corpus")
@@ -332,7 +337,7 @@ def test_every_citation_example_resolves_in_the_corpus() -> None:
 
 
 def test_every_cited_source_id_exists_in_the_history() -> None:
-    """The version an example names must be one the history actually recorded."""
+    """The version that an example names must be a version in the history."""
 
     corpus = os.environ.get("JBOMOHI_CORPUS")
     if not corpus:
@@ -352,8 +357,9 @@ def test_every_cited_source_id_exists_in_the_history() -> None:
         source_id = match.group("id")
         if not (root / match.group("path").split("/", 1)[0]).is_dir():
             continue
-        # A citation writes a mail Message-ID inside the angle brackets that
-        # are part of its syntax; the trailer stores it bare (SPEC.md 3.1.4).
+        # A citation puts a mail Message-ID inside angle brackets, which are
+        # part of the citation syntax. The trailer stores the id without them
+        # (SPEC.md 3.1.4).
         source_id = source_id.strip("<>")
         found = subprocess.run(
             [
@@ -386,7 +392,7 @@ def _corpus_root() -> Path:
 
 
 def _commits_with_their_parent_s_tree(root: Path) -> list[str]:
-    """Commits that record a source event which changed nothing on disk."""
+    """Return the commits that record a source event that changed no file."""
 
     listing = subprocess.run(
         ["git", "-C", str(root), "log", "--format=%H %T %P"],
@@ -408,14 +414,15 @@ def _commits_with_their_parent_s_tree(root: Path) -> list[str]:
 
 
 def test_the_no_change_commit_claim_holds_in_a_real_history() -> None:
-    """AGENTS.md tells the reader a file's log can skip a version. Prove it.
+    """AGENTS.md tells the reader that the log of a file can skip a version.
 
-    A Sonnet librarian reading the rendered instructions reported a Tiki page
-    version as missing. It was not missing: the version changed no text, so the
-    commit's tree equals its parent's and `git log -- <path>` prunes it. The
-    instructions now say so, and this checks that the shape they describe is
-    still the shape the projector produces — if it ever stops being, the
-    paragraph is stale and must go rather than mislead in the other direction.
+    Prove it. A Sonnet librarian read the rendered instructions and reported a
+    Tiki page version as missing. The version was not missing. It changed no
+    text, so the tree of its commit is the same as the tree of its parent, and
+    `git log -- <path>` prunes the commit. The instructions now say so. This
+    test makes sure that the projector still produces the shape that they
+    describe. If it stops, the paragraph is stale. Then the paragraph must go,
+    so that it does not mislead in the other direction.
     """
 
     root = _corpus_root()

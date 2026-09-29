@@ -1,11 +1,11 @@
 """Create and inspect the corpus repository.
 
-SPEC.md 2.2 (2026-09-15): the corpus is its own git repository with its own
-object store at `JBOMOHI_CORPUS`, not a worktree of the tools checkout. A
-worktree shares its repository's objects, so the whole projection — gigabytes
-of it — landed inside the tools checkout, which the charter keeps free of bulk
-state, and a build wrote there rather than where the corpus is configured to
-live.
+SPEC.md 2.2 (2026-09-15): the corpus is its own git repository at
+`JBOMOHI_CORPUS`, with its own object store. It is not a worktree of the tools
+checkout. A worktree (a second working directory of a repository) uses the
+objects of its repository. So the whole projection (many gigabytes) went into
+the tools checkout, and the charter keeps bulk state out of that checkout.
+Also, a build wrote there, and not at the configured path of the corpus.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from .git import GitError, git_output, run_git
 
 
 class CorpusError(RuntimeError):
-    """The requested corpus state is unsafe or invalid."""
+    """The requested state of the corpus is not safe or not valid."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,10 +37,10 @@ def corpus_status(path: Path) -> CorpusStatus:
     marker = resolved / ".git"
     if marker.is_file():
         raise CorpusError(
-            f"corpus at {resolved} is a worktree of another repository, and its "
-            "objects therefore live outside it (SPEC.md 2.2). Copy the history "
-            "into a new repository at this path, then remove the worktree and "
-            "the main ref from the repository that held it."
+            f"corpus at {resolved} is a worktree of another repository, so its "
+            "objects are outside it (SPEC.md 2.2). Copy the history into a new "
+            "repository at this path. Then remove the worktree and the main ref "
+            "from the repository that held it."
         )
     if not marker.is_dir():
         raise CorpusError(f"corpus path exists but is not a git repository: {resolved}")
@@ -57,11 +57,11 @@ def corpus_status(path: Path) -> CorpusStatus:
 
 
 def _has_schema(corpus: Path) -> bool:
-    """Whether the corpus tip looks like a projection rather than other history.
+    """Return True if the tip of the corpus is a projection, not other history.
 
-    A worktree could only ever belong to the tools repository, which was itself
-    the check. A standalone repository has no such tell, so the marker is the
-    one file every projected commit carries.
+    A worktree can belong only to the tools repository, and that fact was the
+    check. A standalone repository gives no such sign. So the marker is the one
+    file that every projected commit contains.
     """
 
     return (
@@ -78,12 +78,13 @@ def _remote_url(repo_root: Path, remote: str = "origin") -> str | None:
 
 
 def init_corpus(config: Config) -> tuple[CorpusStatus, bool]:
-    """Create the corpus repository, idempotently.
+    """Create the corpus repository. A second run changes nothing.
 
-    An existing corpus is used unchanged. Otherwise the repository is created
-    at `JBOMOHI_CORPUS` with the tools checkout's own remote as `origin`, and
-    `main` is fetched from it when the remote publishes one; when it does not,
-    the repository is left unborn and the first build commits the root.
+    If the corpus exists, this function uses it unchanged. If not, the function
+    creates the repository at `JBOMOHI_CORPUS`, with the remote of the tools
+    checkout as `origin`. If that remote publishes `main`, the function fetches
+    it. If not, the repository stays unborn (it has no commits), and the first
+    build commits the root.
     """
 
     current = corpus_status(config.corpus)
@@ -99,7 +100,9 @@ def init_corpus(config: Config) -> tuple[CorpusStatus, bool]:
             )
         return current, False
     if config.corpus.is_symlink():
-        raise CorpusError(f"refusing symlink corpus path: {config.corpus}")
+        raise CorpusError(
+            f"the corpus path is a symlink, which is not allowed: {config.corpus}"
+        )
 
     config.corpus.parent.mkdir(parents=True, exist_ok=True)
     run_git(
@@ -133,5 +136,5 @@ def init_corpus(config: Config) -> tuple[CorpusStatus, bool]:
                 )
     status = corpus_status(config.corpus)
     if status.branch != "main":
-        raise GitError("corpus init did not produce a main branch")
+        raise GitError("corpus init did not make a main branch")
     return status, True

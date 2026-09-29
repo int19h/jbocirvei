@@ -1,1 +1,1 @@
-"""Research note helpers; implemented in a later milestone."""
+"""Helpers for research notes. A later milestone adds them."""
