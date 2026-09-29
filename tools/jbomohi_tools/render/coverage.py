@@ -144,10 +144,9 @@ class _SourceCoverage:
 def _period(tally: SourceTally) -> str:
     if tally.first is None or tally.last is None:
         return "—"
-    # UTC, because the history is the other place a tally comes from and the
-    # fast-import backend stores every commit time in UTC: an IRC event at
-    # 20:00 -08:00 on 31 December is in the next year there, and the table a
-    # refresh renders from the history must equal the one the build rendered.
+    # UTC, because the tallies come from the history and the fast-import
+    # backend stores every commit time in UTC: an IRC event at 20:00 -08:00 on
+    # 31 December is in the next year there, whichever backend wrote it.
     first = tally.first.astimezone(UTC).date()
     last = tally.last.astimezone(UTC).date()
     return str(first.year) if first.year == last.year else f"{first.year}–{last.year}"
