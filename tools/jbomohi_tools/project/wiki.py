@@ -812,8 +812,8 @@ def _page_move_chains(
     to the page that took the title after it. MediaWiki logs the deletion and
     the move that reuses the title in the same second. For this reason the
     bound needs the log id, not only the timestamp. When a title is reused and
-    there is no bound, one move log fits two lineages. Then placement records
-    the move as ambiguous and applies neither of the two moves.
+    there is no bound, one move log fits two lineages. Then the move log
+    belongs to two pages, and placement stops with an error.
     """
 
     moves_by_target: dict[tuple[int, str], list[WikiLogEvent]] = defaultdict(list)

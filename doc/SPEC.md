@@ -1007,7 +1007,7 @@ This directory holds these files:
 - A `coverage.toml` for each source (`from, to, counts, gaps = [...], updated`).
 - The CSV indexes above.
 
-`build` and `update` render `README.md` (the coverage tables) and the instruction files again from `tools/templates/main/`. They write them as an `Event: refresh` commit at the tip, with the time of the last event as its date. The index files of each source, `_meta/<source>/**`, ride on the final event of its projector, that is, they are part of that commit. `update` folds the `_meta` files of every source into the refresh commit, also for a source that yielded no new event, and also when the `Source-Id` of the final event is already present (decided 2026-09-14, and extended to every source in #52).
+`build` and `update` render `README.md` (the coverage tables) and the instruction files again from `tools/templates/main/`. They write them as an `Event: refresh` commit at the tip, with the time of the last event as its date. The index files of each source, `_meta/<source>/**`, ride on the final event of its projector, that is, they are part of that commit. `update` folds the `_meta` files of every source into the refresh commit, also for a source that yielded no new event, and also when the `Source-Id` of the final event is already present (decided 2026-09-14, and extended to every source on 2026-09-16, after #52).
 
 ---
 
