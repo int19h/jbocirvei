@@ -24,7 +24,7 @@ The first is a public git repository. Its `main` branch holds the historical rec
 - The dictionary, with its definition history, comments and votes.
 - Every CLL edition.
 
-The branch stores the record as text files, with one commit for each source event. A source event is one change or one message in a source, for example a wiki revision. Thus `grep` and `git` are the basic tools to find information. They give search, the neighborhood of a match (the text near it), history, as-of views, diffs and authorship. An as-of view shows the state of the record on a given date.
+The branch stores the record as text files, with one commit for each source event. A source event is one item in the history of a source, for example a wiki revision, a mail message or an IRC day. Thus `grep` and `git` are the basic tools to find information. They give search, the neighborhood of a match (the text near it), history, as-of views, diffs and authorship. An as-of view shows the state of the record on a given date.
 
 The second is the set of tools that build and update that branch. The tools build it reproducibly: the same input always gives the same branch.
 
@@ -36,7 +36,7 @@ The third is the set of instructions. With these instructions, a coding harness 
 - No authentication and no restricted data. Everything in the repository is public data in a new package. The repository excludes restricted list archives, unless their owner publishes them.
 - No redaction (removal of text) and no pseudonymization (replacement of names) of public data. Email addresses, nicknames and names stay as the archive has them.
 - No identity *resolution*. The repository records dated attestations about aliases, with citations (§3.7). An attestation is a dated claim, with citations, about who a person is. The repository never merges identities.
-- No knowledge graph and no precomputed conclusions. Conclusions are research outputs. The repository records them as notes, and each note must bottom out in primary units (§3.8). A primary unit is one original source item: one wiki revision, one message, one IRC day, one version of a definition, or one CLL section.
+- No knowledge graph and no precomputed conclusions. Conclusions are research outputs. The repository records them as notes, and each note must bottom out in primary units (§3.8). A primary unit is one version of one source item that a citation (§3.1.4) names, for example one wiki revision, one message or one IRC day.
 - No real-time ingestion. Updates run in batches (§4.5).
 
 ### 1.3 Principles (normative)
@@ -104,7 +104,7 @@ The manifests are tracked on `main:_meta/archive/`. So anyone with the same obje
 
 Public objects are mirrored as assets of the GitHub Release for each snapshot tag. They are never checked into the repository. Private database dumps are never mirrored. Their manifests are enough to prove what the build used.
 
-The `sha256` in manifests is the content address of the tool itself, and the tool computes it at ingest. The tools do not require a checksum from an outside source. They do not carry such a checksum, and they do not compare the data against one (decided 2026-09-14).
+The `sha256` in manifests is the content address that the tool computes at ingest. The tools do not require a checksum from an outside source. They do not carry such a checksum, and they do not compare the data against one (decided 2026-09-14).
 
 An operator export is a data export that the site operator supplies. Operator exports are archived like any other object. Their `origin` names the export (`operator export <date>`), and never a temporary hosting URL.
 
@@ -192,7 +192,7 @@ The repository is hosted on GitHub. It holds text only: no media, no PDFs and no
 
 The size budget is this: stay under the GitHub recommendation of 5 GB, and under 100 MB for each file. The expected packed size is ≈ 0.6–1.2 GB. Mail is the largest part, and git delta-compresses RFC 822 text well.
 
-Measured at M1 (2026-09-16, corpus `5b21f473`, 303,631 commits). M1 is the first milestone (§5). The results are these:
+Measured at M1 (2026-09-16, corpus `5b21f473`, 303,631 commits). M1 is the milestone that delivers the repository (§8). The results are these:
 
 - 997.80 MiB packed, after `git repack -a -d -f`.
 - The largest file is 21.39 MiB (`_meta/mail/lojban-list/messages.csv`).
@@ -426,7 +426,7 @@ In this section, a lineage is one chain of revisions, each the child of the one 
 
 MediaWiki binds every revision to a page id (`rev_page`) for life. A move keeps the page id and changes the title. The redirect that the move leaves behind gets a new page id. So the `pageid` of the move log is not the moved lineage. After the move, MediaWiki records the page id of the source title. That is the page id of the redirect that the move left behind. If the move left no redirect, as with `move_redir`, the value is `0`.
 
-The placement rules follow. All of them are mechanistic: they follow fixed steps and use no judgment. All of them are also fail-closed: when the evidence is not sufficient, they record a gap and do not guess.
+The placement rules follow. All of them are mechanistic: they follow fixed steps and use no judgment. All of them are also fail-closed: they never guess. When the evidence is not sufficient, they record a gap, or they stop with an error.
 
 (1) The projector derives the path of a page at time *t* from its current title. It replays the move logs backward, by title:
 
@@ -711,7 +711,7 @@ A separate export of the jbovlaste database can still arrive. If it does, it is 
 
 So any divergence from before the migration is visible. Someone can adjudicate it later, and the tools do not merge it silently. Event-Windows are computed from Lensisku alone.
 
-Private tables and columns are removed before the dump leaves the server. They include passwords, emails, sessions, private messages, payments, `users.votesize` and the rows of single voters. The loader refuses the tables in `FORBIDDEN_DATA_TABLES` in `tools/jbomohi_tools/project/dictionary.py`.
+Private tables and columns are removed before the dump leaves the server. They include passwords, emails, sessions, private messages, payments, `users.votesize` and the vote rows of each voter. The loader refuses the tables in `FORBIDDEN_DATA_TABLES` in `tools/jbomohi_tools/project/dictionary.py`.
 
 Later updates come from the public cursor feed `GET /api/jbovlaste/changes`. The feed has the types `valsi, definition, comment, wiki`, and it carries `definition_versions` ids and inline diffs. This feed is the only update path, because the version and history endpoints require a token.
 
@@ -813,7 +813,7 @@ The CLL source is a git submodule at `cll/src`. The submodule points at the fork
 | `1.0-errata-2014` | `gh-pages` @ `dabe6154` | the reconstruction by the maintainers of the printed 1.0 with its errata. This is a claim. No diff proves it. |
 | `1.1-2016`, `1.1-2018`, `1.1-2019` | `v1.1-<date>-html` tags | the official LLG 1.1 |
 | `1.2.<n>` | `geklojban-1.2.*` | unofficial |
-| `1.3.<n>` | `v1.3.*` tags | the fork. Every `v1.3.<n>` tag is an edition. New tags become new editions on `update`. |
+| `1.3.<n>` | `v1.3.*` tags | a fork of the book. Every `v1.3.<n>` tag is an edition. New tags become new editions on `update`. |
 
 Nobody can recover the printed 1.0 from the repository. If someone makes a scan with OCR in the future, that scan will be the edition `1.0-print`.
 
@@ -1007,7 +1007,7 @@ This directory holds these files:
 - A `coverage.toml` for each source (`from, to, counts, gaps = [...], updated`).
 - The CSV indexes above.
 
-`build` and `update` render `README.md` (the coverage tables) and the instruction files again from `tools/templates/main/`. They write them as an `Event: refresh` commit at the tip, with the time of the last event as its date. The index files of each source, `_meta/<source>/**`, ride on the final event of its projector, that is, they are part of that commit. `update` folds those files into the refresh commit whenever the source yielded at least one new event. The `Source-Id` of that final event can already be present. Even then, it folds the files in (decided 2026-09-14).
+`build` and `update` render `README.md` (the coverage tables) and the instruction files again from `tools/templates/main/`. They write them as an `Event: refresh` commit at the tip, with the time of the last event as its date. The index files of each source, `_meta/<source>/**`, ride on the final event of its projector, that is, they are part of that commit. `update` folds the `_meta` files of every source into the refresh commit, also for a source that yielded no new event, and also when the `Source-Id` of the final event is already present (decided 2026-09-14, and extended to every source in #52).
 
 ---
 
@@ -1125,7 +1125,7 @@ An invariant is a rule that is always true for the corpus. This command makes su
 
 If `verify` fails, the workflow never pushes.
 
-The initial `build` runs locally, because it takes hours and CI has a 6-hour limit. The operator applies private dumps locally with `jbomohi update dict --dump <file>` (and `wiki --dump`, `tiki --dump`). The export commands on the operator side are not part of this repository.
+The initial `build` runs locally, because it takes hours and CI has a 6-hour limit. A maintainer applies the private dumps locally with `jbomohi update dict --dump <file>` (and `wiki --dump`, `tiki --dump`). The export commands on the operator side are not part of this repository.
 
 ---
 
@@ -1203,12 +1203,10 @@ They are not permanent roles of a model. GitHub issues in this repository are
 the lasting queue for tracked work that someone can act on, for deferred design,
 and for recorded decisions. Ad hoc research, diagnosis, discussion, and other
 untracked tasks MAY proceed directly from a human prompt. For a task that has
-an issue, participants MUST do both of these things:
-
-- Inspect and maintain the scope, acceptance criteria, dependencies and outcome
-  of the issue.
-- If a result needs to become lasting backlog or a recorded decision, create or
-  update an issue.
+an issue, participants MUST inspect and maintain the scope, acceptance criteria,
+dependencies and outcome of the issue. For every task, if a result needs to
+become lasting backlog or a recorded decision, participants create or update an
+issue.
 
 Sessions MUST NOT schedule forced model turns, polling, automatic compaction, or
 unattended dialog input.
@@ -1233,7 +1231,7 @@ Decided 2026-08-27:
 - The dictionary from one Lensisku dump, with aggregate votes.
 - The mail acquisition plan.
 - `jbovlaste-admin` is excluded.
-- Provenance for each source under the own terms of that source.
+- Provenance for each source, under its own terms.
 - The root commit at the Unix epoch, with the `pre-epoch` rule for earlier documents.
 - The grammars/parsers plan (§3.10).
 

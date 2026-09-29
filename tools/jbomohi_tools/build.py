@@ -928,7 +928,7 @@ def _refresh_in_place(
         coverage_tables=coverage,
     )
     # A refresh-only commit can have no changes. An empty commit is still a
-    # correct commit (SPEC.md 3.3 rule 4b). But it claims a refresh when the
+    # correct commit (SPEC.md 3.2 rule (4b)). But it claims a refresh when the
     # render changed nothing.
     pending = dict(render_main(config.repo_root, context))
     pending.update(extra_changes)

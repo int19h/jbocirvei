@@ -128,7 +128,7 @@ LAYOUT: tuple[tuple[str, str], ...] = (
         (
             "Coverage files (what each source holds and lacks), archive "
             "manifests (a record of each archived source file) and CSV indexes. "
-            "The files are UTF-8, in TOML, or in CSV with a header row."
+            "The files are UTF-8 text, in TOML or in CSV with a header row."
         ),
     ),
 )
@@ -339,7 +339,7 @@ def coverage_table(corpus: Path, tallies: dict[str, SourceTally]) -> str:
         notes = _notes_for(corpus, source)
         lines.append(
             f"| `{source}/` | {tally.events:,} | {_period(tally)} | "
-            f"{' '.join(notes) if notes else 'The source recorded no gaps.'} |"
+            f"{' '.join(notes) if notes else 'None recorded.'} |"
         )
     total = sum(tally.events for tally in grouped.values())
     lines.append(f"\nTotal: {total:,} source events.")
