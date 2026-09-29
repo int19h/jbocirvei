@@ -16,11 +16,8 @@ You are on the `tools` branch. Maintainers use this branch. It holds:
 
 Users who only read the record clone `main`. The `main` branch holds the
 record itself, and it shares no history with `tools`. Maintainers keep a copy
-of `main` as a separate git repository at `JBOMOHI_CORPUS`. By default, this
-path is `~/lojban/corpus`.
+of `main` as a separate git repository. The environment variable
+`JBOMOHI_CORPUS` gives its path.
 
 Start with `AGENTS.md`, which gives the rules for work in this repository. Then
-read `doc/SPEC.md`. To work with other sessions, use the Herdr Collab project
-`jbomohi`. The `herdr-collab` skill and the "Herdr Collab" section of
-`AGENTS.md` tell you how. The research and the evidence for the design are in
-`doc/research/`.
+read `doc/SPEC.md`. GitHub issues in this repository track open work.
