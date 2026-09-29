@@ -173,11 +173,57 @@ def test_coverage_reports_the_gaps_a_source_recorded_about_itself(
     table = coverage_table(corpus, {"mail/lojban-list": tally})
 
     assert "`_meta/mail/gaps.csv` lists 2 gaps." in table
-    assert 'The most common reasons are "b" (1) and "d" (1).' in table
+    # Each reason occurs once, so a ranking of them says nothing.
+    assert "most common" not in table
     assert "Known incomplete archives: lojban-list." in table
     assert "9 date headers are unusable." in table
     # Lists are one source to a reader, so they are one row.
     assert table.count("| `mail/`") == 1
+
+
+def test_coverage_counts_the_gaps_files_of_each_channel(tmp_path: Path) -> None:
+    """IRC keeps one gaps file for each channel, one level below its `_meta`.
+
+    The table read only `_meta/<source>/gaps.csv`, so the IRC row said "None
+    recorded." while the channel files listed 6,334 missing days (#66).
+    """
+
+    corpus = _corpus_with(tmp_path, "irc")
+    for channel, days in (("ckule", 2), ("lojban", 1)):
+        root = corpus / "_meta" / "irc" / channel
+        root.mkdir(parents=True)
+        rows = "".join(f"2001-01-0{day},no source file\n" for day in range(1, days + 1))
+        (root / "gaps.csv").write_text("date,reason\n" + rows, encoding="utf-8")
+    # A gaps file with no rows is not named.
+    empty = corpus / "_meta" / "irc" / "jbosnu"
+    empty.mkdir(parents=True)
+    (empty / "gaps.csv").write_text("date,reason\n", encoding="utf-8")
+    tally = SourceTally()
+    tally.record(datetime(2001, 1, 1, tzinfo=UTC))
+
+    table = coverage_table(corpus, {"irc": tally})
+
+    assert (
+        "`_meta/irc/ckule/gaps.csv` and `_meta/irc/lojban/gaps.csv` list 3 gaps. "
+        'The most common reason is "no source file" (3).'
+    ) in table
+    assert "None recorded." not in table
+
+
+def test_coverage_names_many_gaps_files_by_one_pattern(tmp_path: Path) -> None:
+    corpus = _corpus_with(tmp_path, "irc")
+    for channel in ("a", "b", "c", "d"):
+        root = corpus / "_meta" / "irc" / channel
+        root.mkdir(parents=True)
+        (root / "gaps.csv").write_text(
+            "date,reason\n2001-01-01,no source file\n", encoding="utf-8"
+        )
+    tally = SourceTally()
+    tally.record(datetime(2001, 1, 1, tzinfo=UTC))
+
+    table = coverage_table(corpus, {"irc": tally})
+
+    assert "The 4 files `_meta/irc/**/gaps.csv` list 4 gaps." in table
 
 
 CITATION = re.compile(r"^(?P<path>[^@\s]+)@(?P<id>.+?):L\d+(?:-\d+)?$")
