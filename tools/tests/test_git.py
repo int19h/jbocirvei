@@ -23,6 +23,17 @@ def git(cwd: Path, *args: str) -> str:
     return result.stdout.strip()
 
 
+def utc_z(value: str) -> str:
+    """Spell a zero UTC offset as `Z`, whichever form git printed.
+
+    For `%aI`, `%cI` and `--date=iso-strict`, some git versions print a zero
+    offset as `Z` and others as `+00:00`. Both are the same ISO 8601 instant,
+    so the tests accept either and still pin the date and the zero offset.
+    """
+
+    return value[: -len("+00:00")] + "Z" if value.endswith("+00:00") else value
+
+
 def unborn_worktree(tmp_path: Path) -> Path:
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -56,7 +67,7 @@ def test_commit_event_sets_source_identity_date_message_and_tree(
     assert git(corpus, "status", "--porcelain") == ""
     metadata = git(corpus, "show", "-s", "--format=%an%n%ae%n%aI%n%cn%n%ce%n%cI%n%B")
     lines = metadata.splitlines()
-    assert lines[:6] == [
+    assert [utc_z(line) for line in lines[:6]] == [
         "test user",
         "test%20user@mw.lojban.org",
         "2004-01-02T03:04:05Z",
@@ -209,7 +220,7 @@ def test_pre_epoch_event_clamps_git_date_and_keeps_source_date(tmp_path: Path) -
         changes={"llg/paper.txt": "historical text\n"},
     )
     commit_event(event, corpus)
-    assert git(corpus, "show", "-s", "--format=%aI") == "1970-01-01T00:00:00Z"
+    assert utc_z(git(corpus, "show", "-s", "--format=%aI")) == "1970-01-01T00:00:00Z"
     assert "Source-Date: 1960-05-01" in git(corpus, "show", "-s", "--format=%B")
 
 
@@ -229,7 +240,7 @@ def test_window_event_preserves_bounds_and_source_time(tmp_path: Path) -> None:
     commit_event(event, corpus)
     message = git(corpus, "show", "-s", "--format=%B")
     assert "Event-Window: 2004-01-01..2004-01-03" in message
-    assert git(corpus, "show", "-s", "--format=%aI") == "2004-01-02T03:04:05Z"
+    assert utc_z(git(corpus, "show", "-s", "--format=%aI")) == "2004-01-02T03:04:05Z"
 
 
 @pytest.mark.parametrize(
@@ -755,7 +766,7 @@ def test_pre_epoch_events_are_dated_alike_by_every_backend(tmp_path: Path) -> No
     )
     _three_ways(tmp_path, (event,))
     careful = tmp_path / "careful" / "repo"
-    assert git(careful, "log", "-1", "--format=%ad", "--date=iso-strict") == (
+    assert utc_z(git(careful, "log", "-1", "--format=%ad", "--date=iso-strict")) == (
         "1970-01-01T00:00:00Z"
     )
     assert "Source-Date: 1960-05-01" in git(careful, "log", "-1", "--format=%B")

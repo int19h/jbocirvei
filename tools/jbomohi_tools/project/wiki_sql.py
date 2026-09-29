@@ -815,7 +815,7 @@ def load_wiki_sql_dump(path: Path) -> WikiSqlDump:
                     sha1_base36(payload).encode("ascii") != content_sha1
                     or len(payload) != content_size
                 ):
-                    # The stored digest is the authority (dump-schemas.md 3.4);
+                    # The stored digest is the authority (SPEC.md 3.2);
                     # a row that disagrees with it is evidence of corruption,
                     # not text to publish.
                     integrity_failures += 1
