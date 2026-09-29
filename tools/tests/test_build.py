@@ -900,10 +900,25 @@ def _mixed_sources() -> dict[str, object]:
         author=Identity.namespaced("mw.lojban.org", "tester"),
         changes={"grammars/old/notebook.txt": "text\n"},
     )
+    # The CLL shape: an exact event that also carries a publication date of
+    # its own, and a commit body above the trailers.
+    edition = Event(
+        source="cll",
+        source_id="cll=1.1-2016",
+        event="render",
+        time_confidence="exact",
+        source_time=datetime(2016, 5, 1, tzinfo=UTC),
+        source_date="2016",
+        summary="render 1.1-2016",
+        author=Identity.tool(),
+        body="Rendered from the cll/src submodule.\nSecond line: of the body.",
+        changes={"cll/editions/1.1-2016/01.txt": "text\n"},
+    )
     return {
         "wiki": lambda: iter((wiki,)),
         "irc": lambda: iter((new_year, later)),
         "grammars": lambda: iter((pre_epoch,)),
+        "cll": lambda: iter((edition,)),
     }
 
 
@@ -991,12 +1006,62 @@ def test_refresh_commits_what_update_commits_with_no_new_events(
 def test_refresh_changes_nothing_when_the_files_are_current(tmp_path: Path) -> None:
     config, _commit = tools_repo(tmp_path / "repo")
     built = build_corpus(config, _mixed_sources())
+    tallies = corpus_tallies(config.corpus)
 
     report = refresh_corpus(config)
-
-    # The build rendered its table from the stream; the history gives the
-    # same one, so there is nothing to commit.
     assert (report.refreshed, report.tagged, report.head) == (False, False, built.head)
+
+    # A refresh commit at the tip is not a source event either: after one, the
+    # tallies are unchanged and a second refresh has nothing to do.
+    template = config.repo_root / "tools/templates/main/README.md"
+    template.write_text(template.read_text() + "\nA correction.\n")
+    commit_fixture(config.repo_root, "templates: a correction")
+    first = refresh_corpus(config)
+    again = refresh_corpus(config)
+
+    assert first.refreshed is True
+    assert (again.refreshed, again.head) == (False, first.head)
+    assert corpus_tallies(config.corpus) == tallies
+
+
+def test_an_update_of_one_source_describes_every_source(tmp_path: Path) -> None:
+    """The coverage table is the corpus's, not the stream's.
+
+    Counting the stream, `update irc` rendered a table with only the IRC row,
+    and a later `refresh` would have put the others back.
+    """
+
+    config, _commit = tools_repo(tmp_path / "repo")
+    build_corpus(config, _mixed_sources())
+    day = Event(
+        source="irc/lojban",
+        source_id="2001-07-01",
+        event="import",
+        time_confidence="exact",
+        source_time=datetime(2001, 7, 1, tzinfo=UTC),
+        summary="2001-07-01 (1 lines)",
+        author=Identity.irc(),
+        changes={"irc/lojban/2001/2001-07-01.txt": "line\n"},
+    )
+
+    report = update_corpus(config, {"irc": lambda: iter((day,))})
+
+    assert report.events == 1
+    readme = (config.corpus / "README.md").read_text()
+    for row in ("| `wiki/` | 1 |", "| `irc/` | 3 |", "| `grammars/` | 1 |"):
+        assert row in readme
+    assert refresh_corpus(config).refreshed is False
+
+
+def test_refresh_refuses_a_dirty_tools_checkout(tmp_path: Path) -> None:
+    config, _commit = tools_repo(tmp_path / "repo")
+    build_corpus(config, _mixed_sources())
+    head = git(config.corpus, "rev-parse", "HEAD")
+    (config.repo_root / "stray.txt").write_text("not committed\n")
+
+    with pytest.raises(CorpusError, match="tools worktree is dirty"):
+        refresh_corpus(config)
+    assert git(config.corpus, "rev-parse", "HEAD") == head
 
 
 def test_refresh_leaves_source_metadata_to_update(tmp_path: Path) -> None:

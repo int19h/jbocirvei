@@ -377,9 +377,11 @@ construction and is what a citation of that refresh means. The snapshot-derived
 nothing is new only by projecting every source, which needs the archive tier
 (including private dumps held on one machine) and the memory of a full
 projection. A template change needs none of that. `jbomohi refresh` renders the
-instruction files at the tip from the corpus and the tools checkout alone: every
-input of the refresh except the coverage tallies already comes from there, and
-the tallies are read back from the history — each source event is one commit
+instruction files at the tip from the corpus and the tools checkout alone. Every
+input of a refresh comes from there, on every path: `build`, `update` and
+`refresh` all read the coverage tallies back from the history after they
+commit, so they render the same table for the same corpus, and an `update` of
+some sources still describes all of them. Each source event is one commit
 whose `Source:` trailer names it (grouped by its first path component) and
 whose committer time is its source time, with a `pre-epoch` event's true date
 taken from `Source-Date:`; `Source: meta` commits and `Event: contributed`
@@ -389,8 +391,8 @@ writes only the rendered instruction files and `_meta/schema.toml`; it never
 touches `_meta/archive/` or a source's `_meta` files, which remain `update`'s.
 Otherwise it is `update`'s refresh-only path exactly: same snapshot name, no
 tag, tip time, `Source-Id: refresh@<parent>`, and no commit when nothing would
-change. With no new events and no changed metadata, the two commands make the
-same commit.
+change. When `update` appends no event and changes no metadata, the two
+commands make the same commit.
 
 ### 4.3 Fetch/project split
 

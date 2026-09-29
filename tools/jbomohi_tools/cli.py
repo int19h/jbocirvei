@@ -316,7 +316,9 @@ def _refresh(args: argparse.Namespace, config: Config) -> int:
         f"snapshot={report.snapshot} "
         f"instructions={'refreshed' if report.refreshed else 'already current'}"
     )
-    if args.push and report.refreshed:
+    # Whenever asked, not only after a new commit: a refresh whose push failed
+    # is current locally, and must still be publishable by running it again.
+    if args.push:
         pushed = push_main_ranges(config.corpus, report.snapshot)
         print(f"push: main_updates={pushed.main_updates} snapshot={pushed.snapshot}")
     return 0

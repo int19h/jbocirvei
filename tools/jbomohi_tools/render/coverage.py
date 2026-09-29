@@ -120,7 +120,7 @@ LAYOUT: tuple[tuple[str, str], ...] = (
 
 @dataclass(slots=True)
 class SourceTally:
-    """What one source contributed, counted as the build emitted it."""
+    """What one source contributed: its event count and its first and last time."""
 
     events: int = 0
     first: datetime | None = None
@@ -260,11 +260,14 @@ def _source_date(value: str) -> datetime:
 def corpus_tallies(corpus: Path) -> dict[str, SourceTally]:
     """What each source contributed, read back from the corpus history.
 
-    The build counts the projector stream as it commits it, which needs the
-    archive. A refresh that changes only the instruction files has no reason to
-    project anything: every source event is one commit whose `Source:` trailer
-    names it and whose committer time is its source time (SPEC.md 2.4), so the
-    history holds the same tallies. Pre-epoch events are the exception to the
+    Every refresh renders its coverage table from this, whether `build`,
+    `update` or `refresh` commits it, so the three agree on the same corpus by
+    construction. Counting the projector stream instead needed the archive, and
+    it described what the stream yielded rather than what the corpus holds: an
+    `update` of one source rendered a table of one row. Every source event is
+    one commit whose `Source:` trailer names it and whose committer time is its
+    source time (SPEC.md 2.4); the walk costs about 16 seconds over 307,103
+    commits. Pre-epoch events are the exception to the
     committer time, which git clamps to the epoch; their true date is in
     `Source-Date:`. Tool commits (`Source: meta`) and contributed notes and
     attestations are not source events and are not counted.

@@ -32,7 +32,6 @@ from .git import (
 )
 from .render import (
     RenderContext,
-    SourceTally,
     commit_instruction_refresh,
     commit_root,
     corpus_tallies,
@@ -111,7 +110,7 @@ def require_clean_tools(repo_root: Path) -> str:
     dirty = git_output(repo_root, ["status", "--porcelain=v1", "--untracked-files=all"])
     if dirty:
         raise CorpusError(
-            "tools worktree is dirty; commit or remove changes before build/update"
+            "tools worktree is dirty; commit or remove changes before build/update/refresh"
         )
     return git_output(repo_root, ["rev-parse", "HEAD"])
 
@@ -335,22 +334,6 @@ def _commit_all(
     return count, last_time
 
 
-def _tallied(
-    stream: Iterator[tuple[str, Event]], tallies: dict[str, SourceTally]
-) -> Iterator[Event]:
-    """Count what each source contributed, as the build emits it.
-
-    The counts have to come from the stream rather than from the corpus
-    afterwards, because `_meta` records what a projector found and not how many
-    commits it produced, and walking 293,095 commits to recover that at render
-    time would cost minutes for a number the merge already knows.
-    """
-
-    for name, event in stream:
-        tallies.setdefault(name, SourceTally()).record(event.source_time)
-        yield event
-
-
 def build_corpus(
     config: Config,
     sources: Mapping[str, EventFactory],
@@ -381,14 +364,15 @@ def build_corpus(
             ["init", "--initial-branch=main", str(scratch)],
         )
         commit_root(config.repo_root, scratch)
-        tallies: dict[str, SourceTally] = {}
         event_count, last_time = _commit_all(
             scratch,
-            _tallied(merge_named_events(sources, until=until), tallies),
+            (event for _name, event in merge_named_events(sources, until=until)),
             backend,
         )
         snapshot = _snapshot_name(last_time)
-        coverage = coverage_table(scratch, tallies)
+        # From the history, as every refresh does, so that build, update and
+        # refresh can only render the same table for the same corpus (#63).
+        coverage = coverage_table(scratch, corpus_tallies(scratch))
         refresh_id = "refresh@" + snapshot.removeprefix("snapshot/")
         commit_instruction_refresh(
             config.repo_root,
@@ -775,10 +759,6 @@ def update_corpus(
     by_source: Counter[str] = Counter()
     last_time: datetime | None = None
     source_meta: dict[str, dict[str, str | bytes]] = {}
-    # Every event is tallied, not only the new ones: the coverage table
-    # describes the corpus, and an update that adds three messages has not made
-    # the other hundred thousand stop existing.
-    tallies: dict[str, SourceTally] = {}
     # One session for the whole append. Committing each event through
     # `commit_event` proved the worktree clean and rebuilt the index from HEAD
     # first, so every appended day cost a scan of the entire corpus: appending
@@ -786,7 +766,6 @@ def update_corpus(
     # hours for work the event itself does in milliseconds.
     with BuildCommitSession(config.corpus) as live:
         for source_name, event in merge_named_events(sources, meta_sink=source_meta):
-            tallies.setdefault(source_name, SourceTally()).record(event.source_time)
             if (event.source, event.source_id) in known:
                 continue
             live.commit(event)
@@ -813,7 +792,10 @@ def update_corpus(
     else:
         snapshot = _snapshot_name(last_time)
     assert last_time is not None
-    coverage = coverage_table(config.corpus, tallies)
+    # The table describes the corpus, not the stream: read from the history, it
+    # counts every event, including those of sources this update did not
+    # project, and it is the table a later `refresh` renders (#63).
+    coverage = coverage_table(config.corpus, corpus_tallies(config.corpus))
     refresh_changes = _archive_manifest_changes(config.archive)
     # Every source's metadata, not only that of sources with new events. A
     # source that appended nothing still has `_meta` files rendered by the

@@ -93,6 +93,26 @@ def test_build_update_verify_cli_wiring(monkeypatch, tmp_path: Path, capsys) -> 
     assert "snapshot=snapshot/y" in printed
     assert "instructions=refreshed" in printed
 
+    # `--push` pushes even when nothing new was committed: a refresh whose push
+    # failed is current locally and must still be publishable.
+    pushes: list[str] = []
+    monkeypatch.setattr(
+        "jbomohi_tools.cli.refresh_corpus",
+        lambda _config: SimpleNamespace(
+            head="c" * 40, commits=7, snapshot="snapshot/y", refreshed=False
+        ),
+    )
+    monkeypatch.setattr(
+        "jbomohi_tools.cli.push_main_ranges",
+        lambda _corpus, snapshot: (
+            pushes.append(snapshot)
+            or SimpleNamespace(main_updates=1, snapshot=snapshot)
+        ),
+    )
+    assert main(["refresh", "--push"]) == 0
+    assert pushes == ["snapshot/y"]
+    assert "push: main_updates=1" in capsys.readouterr().out
+
     monkeypatch.setattr(
         "jbomohi_tools.cli.verify_corpus",
         lambda _corpus: SimpleNamespace(
