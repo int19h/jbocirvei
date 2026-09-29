@@ -16,8 +16,8 @@ You are on the `tools` branch. Maintainers use this branch. It holds:
 
 Users who only read the record clone `main`. The `main` branch holds the
 record itself, and it shares no history with `tools`. Maintainers keep a copy
-of `main` as a separate git repository. The environment variable
-`JBOMOHI_CORPUS` gives its path.
+of `main` as a separate git repository, at the path in `JBOMOHI_CORPUS`.
+`doc/SPEC.md §2.2` gives the default path.
 
 Start with `AGENTS.md`, which gives the rules for work in this repository. Then
 read `doc/SPEC.md`. GitHub issues in this repository track open work.
