@@ -16,8 +16,10 @@ from __future__ import annotations
 import csv
 import tomllib
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
+
+from ..git import run_git
 
 # What each top-level directory holds, in the terms a reader needs before
 # opening one: the format on disk and the encoding. Presence is never asserted
@@ -142,7 +144,12 @@ class _SourceCoverage:
 def _period(tally: SourceTally) -> str:
     if tally.first is None or tally.last is None:
         return "—"
-    first, last = tally.first.date(), tally.last.date()
+    # UTC, because the history is the other place a tally comes from and the
+    # fast-import backend stores every commit time in UTC: an IRC event at
+    # 20:00 -08:00 on 31 December is in the next year there, and the table a
+    # refresh renders from the history must equal the one the build rendered.
+    first = tally.first.astimezone(UTC).date()
+    last = tally.last.astimezone(UTC).date()
     return str(first.year) if first.year == last.year else f"{first.year}–{last.year}"
 
 
@@ -229,6 +236,54 @@ def _notes_for(corpus: Path, source: str) -> list[str]:
             "archive does not hold"
         )
     return notes
+
+
+# One record per commit, fields and records split by ASCII separators so that
+# no trailer value can be mistaken for a boundary.
+_TALLY_FORMAT = (
+    "%x1e%ct%x1f"
+    "%(trailers:key=Source,valueonly,separator=%x2c)%x1f"
+    "%(trailers:key=Event,valueonly,separator=%x2c)%x1f"
+    "%(trailers:key=Time-Confidence,valueonly,separator=%x2c)%x1f"
+    "%(trailers:key=Source-Date,valueonly,separator=%x2c)"
+)
+
+
+def _source_date(value: str) -> datetime:
+    """The true date of a pre-epoch event, as precise as its trailer is."""
+
+    parts = [int(part) for part in value.split("-")]
+    year, month, day = (*parts, 1, 1)[:3]
+    return datetime(year, month, day, tzinfo=UTC)
+
+
+def corpus_tallies(corpus: Path) -> dict[str, SourceTally]:
+    """What each source contributed, read back from the corpus history.
+
+    The build counts the projector stream as it commits it, which needs the
+    archive. A refresh that changes only the instruction files has no reason to
+    project anything: every source event is one commit whose `Source:` trailer
+    names it and whose committer time is its source time (SPEC.md 2.4), so the
+    history holds the same tallies. Pre-epoch events are the exception to the
+    committer time, which git clamps to the epoch; their true date is in
+    `Source-Date:`. Tool commits (`Source: meta`) and contributed notes and
+    attestations are not source events and are not counted.
+    """
+
+    listing = run_git(corpus, ["log", f"--format={_TALLY_FORMAT}", "HEAD"]).stdout
+    tallies: dict[str, SourceTally] = {}
+    for record in listing.split("\x1e"):
+        if not record.strip():
+            continue
+        stamp, source, event, confidence, source_date = record.strip("\n").split("\x1f")
+        if not source or source == "meta" or event == "contributed":
+            continue
+        if confidence == "pre-epoch":
+            moment = _source_date(source_date)
+        else:
+            moment = datetime.fromtimestamp(int(stamp), tz=UTC)
+        tallies.setdefault(source.split("/", 1)[0], SourceTally()).record(moment)
+    return tallies
 
 
 def coverage_table(corpus: Path, tallies: dict[str, SourceTally]) -> str:

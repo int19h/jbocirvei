@@ -1,6 +1,6 @@
 """Render generated corpus files."""
 
-from .coverage import SourceTally, coverage_table, layout_summary
+from .coverage import SourceTally, corpus_tallies, coverage_table, layout_summary
 from .templates import (
     RenderContext,
     commit_instruction_refresh,
@@ -13,6 +13,7 @@ __all__ = [
     "SourceTally",
     "commit_instruction_refresh",
     "commit_root",
+    "corpus_tallies",
     "coverage_table",
     "layout_summary",
     "render_main",

@@ -16,6 +16,7 @@ def test_complete_command_skeleton_is_registered() -> None:
         "archive",
         "build",
         "update",
+        "refresh",
         "verify",
         "cll",
         "who",
@@ -77,6 +78,20 @@ def test_build_update_verify_cli_wiring(monkeypatch, tmp_path: Path, capsys) -> 
     assert "events=1 (wiki=1)" in printed
     assert "instructions=refreshed" in printed
     assert "tag=minted" in printed
+
+    # `refresh` projects nothing, so it must not resolve any source factory.
+    calls.clear()
+    monkeypatch.setattr(
+        "jbomohi_tools.cli.refresh_corpus",
+        lambda _config: SimpleNamespace(
+            head="c" * 40, commits=7, snapshot="snapshot/y", refreshed=True
+        ),
+    )
+    assert main(["refresh"]) == 0
+    assert calls == []
+    printed = capsys.readouterr().out
+    assert "snapshot=snapshot/y" in printed
+    assert "instructions=refreshed" in printed
 
     monkeypatch.setattr(
         "jbomohi_tools.cli.verify_corpus",

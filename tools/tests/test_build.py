@@ -5,7 +5,7 @@ import shutil
 import subprocess
 from collections.abc import Iterator
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -15,13 +15,16 @@ from jbomohi_tools.build import (
     _archive_manifest_changes,
     _tag_snapshot,
     build_corpus,
+    merge_named_events,
     push_main_ranges,
+    refresh_corpus,
     update_corpus,
     verify_corpus,
 )
 from jbomohi_tools.config import Config
 from jbomohi_tools.corpus import CorpusError
-from jbomohi_tools.git import Event, EventError, GitError, Identity
+from jbomohi_tools.git import Event, EventError, GitError, Identity, commit_event
+from jbomohi_tools.render import SourceTally, corpus_tallies, coverage_table
 
 HERE = Path(__file__).resolve()
 WORKSPACE = HERE.parents[2]
@@ -854,3 +857,171 @@ def test_update_refreshes_meta_for_a_source_with_no_new_events(tmp_path: Path) -
     assert (config.corpus / "_meta/wiki/index.csv").read_text() == (
         "path,note\nnew,rendered\n"
     )
+
+
+PACIFIC = timezone(timedelta(hours=-8))
+
+
+def _mixed_sources() -> dict[str, object]:
+    """Sources whose tallies are easy to get wrong when read from the history.
+
+    Two IRC channels under one top-level source, an IRC day that is still
+    2000 in its own zone but already 2001 in UTC, and a pre-epoch document
+    whose commit time git clamps to 1970.
+    """
+
+    wiki = event("rev=1", 1, "wiki/main/One.wiki")
+    new_year = Event(
+        source="irc/lojban",
+        source_id="2000-12-31",
+        event="import",
+        time_confidence="exact",
+        source_time=datetime(2000, 12, 31, 20, 0, 0, tzinfo=PACIFIC),
+        summary="2000-12-31 (1 lines)",
+        author=Identity.irc(),
+        changes={"irc/lojban/2000/2000-12-31.txt": "line\n"},
+    )
+    later = replace(
+        new_year,
+        source="irc/ckule",
+        source_id="2001-06-01",
+        source_time=datetime(2001, 6, 1, 12, 0, 0, tzinfo=UTC),
+        summary="2001-06-01 (1 lines)",
+        changes={"irc/ckule/2001/2001-06-01.txt": "line\n"},
+    )
+    pre_epoch = Event(
+        source="grammars",
+        source_id="loglan=1",
+        event="created",
+        time_confidence="pre-epoch",
+        source_time=datetime(1960, 6, 1, tzinfo=UTC),
+        source_date="1960-06-01",
+        summary="a 1960 document",
+        author=Identity.namespaced("mw.lojban.org", "tester"),
+        changes={"grammars/old/notebook.txt": "text\n"},
+    )
+    return {
+        "wiki": lambda: iter((wiki,)),
+        "irc": lambda: iter((new_year, later)),
+        "grammars": lambda: iter((pre_epoch,)),
+    }
+
+
+def _stream_tallies(sources: dict[str, object]) -> dict[str, SourceTally]:
+    tallies: dict[str, SourceTally] = {}
+    for name, item in merge_named_events(sources):
+        tallies.setdefault(name, SourceTally()).record(item.source_time)
+    return tallies
+
+
+def test_the_history_holds_the_tallies_the_stream_counted(tmp_path: Path) -> None:
+    """`refresh` reads back from the corpus what `build` counted from the stream.
+
+    If the two ever disagree, a refresh publishes a coverage table that the
+    next update silently rewrites. Tool commits and contributed notes are in
+    the history too, and are not source events.
+    """
+
+    config, _commit = tools_repo(tmp_path / "repo")
+    sources = _mixed_sources()
+    build_corpus(config, sources)
+    note = Event(
+        source="notes",
+        source_id="notes/2026/2026-09-29-fixture.md",
+        event="contributed",
+        time_confidence="exact",
+        source_time=datetime(2026, 9, 29, tzinfo=UTC),
+        summary="a contributed note",
+        author=Identity.contributed("reader", "reader@example.invalid"),
+        changes={"notes/2026/2026-09-29-fixture.md": "note\n"},
+    )
+    commit_event(note, config.corpus)
+
+    from_history = corpus_tallies(config.corpus)
+    from_stream = _stream_tallies(sources)
+
+    assert from_history == from_stream
+    table = coverage_table(config.corpus, from_history)
+    assert table == coverage_table(config.corpus, from_stream)
+    # The day that is 2000 in its own zone is 2001 in UTC, which is what git
+    # stores; and the 1960 document keeps its true year.
+    assert "| `irc/` | 2 | 2001 |" in table
+    assert "| `grammars/` | 1 | 1960 |" in table
+    assert "`notes/`" not in table
+
+
+def test_refresh_commits_what_update_commits_with_no_new_events(
+    tmp_path: Path,
+) -> None:
+    """A template change, published without the archive.
+
+    `update` projects every source to find that nothing is new, which needs
+    the archive and all the memory a projection costs. `refresh` reads the
+    corpus instead, and the commit it makes must be the one `update` would
+    have made: same tree, same message, same date, same parent.
+    """
+
+    heads = {}
+    for command in ("update", "refresh"):
+        config, _commit = tools_repo(tmp_path / f"repo-{command}")
+        sources = _mixed_sources()
+        build_corpus(config, sources)
+        before = git(config.corpus, "rev-parse", "HEAD")
+        tags_before = git(config.corpus, "tag", "--list")
+        template = config.repo_root / "tools/templates/main/README.md"
+        template.write_text(template.read_text() + "\nA correction.\n")
+        commit_fixture(config.repo_root, "templates: a correction")
+
+        if command == "update":
+            report = update_corpus(config, _mixed_sources())
+        else:
+            report = refresh_corpus(config)
+
+        assert (report.events, report.refreshed, report.tagged) == (0, True, False)
+        assert git(config.corpus, "rev-parse", "HEAD^") == before
+        assert git(config.corpus, "tag", "--list") == tags_before
+        assert f"Source-Id: refresh@{before}" in git(
+            config.corpus, "log", "-1", "--format=%B"
+        )
+        assert "A correction." in (config.corpus / "README.md").read_text()
+        heads[command] = report.head
+    assert heads["update"] == heads["refresh"]
+
+
+def test_refresh_changes_nothing_when_the_files_are_current(tmp_path: Path) -> None:
+    config, _commit = tools_repo(tmp_path / "repo")
+    built = build_corpus(config, _mixed_sources())
+
+    report = refresh_corpus(config)
+
+    # The build rendered its table from the stream; the history gives the
+    # same one, so there is nothing to commit.
+    assert (report.refreshed, report.tagged, report.head) == (False, False, built.head)
+
+
+def test_refresh_leaves_source_metadata_to_update(tmp_path: Path) -> None:
+    """Only the instruction files: `_meta` belongs to the projectors."""
+
+    config, _commit = tools_repo(tmp_path / "repo")
+    build_corpus(config, _mixed_sources())
+    template = config.repo_root / "tools/templates/main/AGENTS.md"
+    template.write_text(template.read_text() + "\nA correction.\n")
+    commit_fixture(config.repo_root, "templates: a correction")
+
+    refresh_corpus(config)
+
+    changed = set(
+        git(config.corpus, "diff", "--name-only", "HEAD^", "HEAD").splitlines()
+    )
+    # README.md and the schema name the tools commit, so every refresh
+    # rewrites them; nothing else outside the templates may change.
+    assert changed == {"AGENTS.md", "README.md", "_meta/schema.toml"}
+
+
+def test_refresh_refuses_a_dirty_corpus(tmp_path: Path) -> None:
+    config, _commit = tools_repo(tmp_path / "repo")
+    build_corpus(config, _mixed_sources())
+    (config.corpus / "stray.txt").write_text("not committed\n")
+
+    with pytest.raises(CorpusError, match="refusing refresh"):
+        refresh_corpus(config)

@@ -35,6 +35,7 @@ from .render import (
     SourceTally,
     commit_instruction_refresh,
     commit_root,
+    corpus_tallies,
     coverage_table,
     layout_summary,
     render_main,
@@ -768,23 +769,7 @@ def update_corpus(
     nearly accepted as one.
     """
 
-    tools_commit = require_clean_tools(config.repo_root)
-    status, _created = init_corpus(config)
-    if status.branch != "main" or status.head is None:
-        raise CorpusError("update requires an initialized main corpus")
-    _materialize_maildir_modes(config.corpus)
-    dirty = git_output(
-        config.corpus, ["status", "--porcelain=v1", "--untracked-files=all"]
-    )
-    if dirty:
-        raise CorpusError(
-            "corpus working tree is dirty; refusing update. An update that was "
-            "killed between flushes leaves the files of up to "
-            f"{UPDATE_FLUSH_EVENTS} events that were never committed: if that "
-            "is what this is, `git -C <corpus> reset --hard HEAD` discards "
-            "them and the events are appended again on the next run. Check "
-            "first that none of it is contributed work."
-        )
+    tools_commit = _open_for_append(config, "update")
     known = existing_source_ids(config.corpus)
     event_count = 0
     by_source: Counter[str] = Counter()
@@ -842,47 +827,31 @@ def update_corpus(
             if previous is not None and previous != value:
                 raise CorpusError(f"refresh metadata collision at {path}")
             refresh_changes[path] = value
+    if refresh_only:
+        return _refresh_in_place(
+            config,
+            tools_commit=tools_commit,
+            tip_time=last_time,
+            snapshot=snapshot,
+            coverage=coverage,
+            extra_changes=refresh_changes,
+        )
     context = RenderContext(
         snapshot=snapshot,
         tools_commit=tools_commit,
         layout_summary=layout_summary(config.corpus),
         coverage_tables=coverage,
     )
-    if refresh_only:
-        # Nothing forces a refresh-only commit to have anything to say. An
-        # empty one would still be a legitimate commit (SPEC.md 3.3 rule 4b),
-        # but it would claim a refresh happened when nothing was re-rendered.
-        pending = dict(render_main(config.repo_root, context))
-        pending.update(refresh_changes)
-        if not _differs_from_worktree(config.corpus, pending):
-            return BuildReport(
-                head=git_output(config.corpus, ["rev-parse", "HEAD"]),
-                commits=int(git_output(config.corpus, ["rev-list", "--count", "HEAD"])),
-                events=0,
-                snapshot=snapshot,
-                coverage=coverage,
-                events_by_source={},
-                refreshed=False,
-                tagged=False,
-            )
-        # The parent names this refresh uniquely: every refresh has a distinct
-        # one, and "the refresh applied on top of <commit>" is what a citation
-        # of it means. The snapshot-derived id belongs to the update that
-        # minted the snapshot and cannot be reused here.
-        refresh_id = "refresh@" + git_output(config.corpus, ["rev-parse", "HEAD"])
-    else:
-        refresh_id = "refresh@" + snapshot.removeprefix("snapshot/")
     commit_instruction_refresh(
         config.repo_root,
         config.corpus,
         source_time=last_time,
-        source_id=refresh_id,
+        source_id="refresh@" + snapshot.removeprefix("snapshot/"),
         context=context,
         extra_changes=refresh_changes,
     )
     head = git_output(config.corpus, ["rev-parse", "HEAD"])
-    if not refresh_only:
-        _tag_snapshot(config.corpus, head, snapshot, last_time, coverage)
+    _tag_snapshot(config.corpus, head, snapshot, last_time, coverage)
     commits = int(git_output(config.corpus, ["rev-list", "--count", "HEAD"]))
     return BuildReport(
         head=head,
@@ -892,7 +861,106 @@ def update_corpus(
         coverage=coverage,
         events_by_source=dict(sorted(by_source.items())),
         refreshed=True,
-        tagged=not refresh_only,
+        tagged=True,
+    )
+
+
+def refresh_corpus(config: Config) -> BuildReport:
+    """Render the instruction files again at the tip, from the corpus alone.
+
+    A template change needs no projection: the corpus already holds every
+    event, and the coverage table's tallies can be read back from its history
+    (`corpus_tallies`). So this needs neither the archive nor the memory a
+    projection costs, and it leaves `_meta/archive/` and every source's `_meta`
+    files alone; `update` is still the command that refreshes those. What it
+    commits is what `update` commits when it finds no new event and no changed
+    metadata: the same snapshot re-rendered, with no new tag (SPEC.md 4.2).
+    """
+
+    tools_commit = _open_for_append(config, "refresh")
+    tip_time = _tip_time(config.corpus)
+    return _refresh_in_place(
+        config,
+        tools_commit=tools_commit,
+        tip_time=tip_time,
+        snapshot=_current_snapshot(config.corpus, tip_time),
+        coverage=coverage_table(config.corpus, corpus_tallies(config.corpus)),
+        extra_changes={},
+    )
+
+
+def _open_for_append(config: Config, command: str) -> str:
+    """Prove the tools checkout and the corpus fit to append to; return the tools commit."""
+
+    tools_commit = require_clean_tools(config.repo_root)
+    status, _created = init_corpus(config)
+    if status.branch != "main" or status.head is None:
+        raise CorpusError(f"{command} requires an initialized main corpus")
+    _materialize_maildir_modes(config.corpus)
+    dirty = git_output(
+        config.corpus, ["status", "--porcelain=v1", "--untracked-files=all"]
+    )
+    if dirty:
+        raise CorpusError(
+            f"corpus working tree is dirty; refusing {command}. An update that "
+            "was killed between flushes leaves the files of up to "
+            f"{UPDATE_FLUSH_EVENTS} events that were never committed: if that "
+            "is what this is, `git -C <corpus> reset --hard HEAD` discards "
+            "them and the events are appended again on the next run. Check "
+            "first that none of it is contributed work."
+        )
+    return tools_commit
+
+
+def _refresh_in_place(
+    config: Config,
+    *,
+    tools_commit: str,
+    tip_time: datetime,
+    snapshot: str,
+    coverage: str,
+    extra_changes: Mapping[str, str | bytes],
+) -> BuildReport:
+    """Commit a refresh with no new events, or nothing if nothing would change.
+
+    A refresh is not a new snapshot of the record, it is the same snapshot
+    re-rendered, so it reuses the snapshot name and mints no tag.
+    """
+
+    context = RenderContext(
+        snapshot=snapshot,
+        tools_commit=tools_commit,
+        layout_summary=layout_summary(config.corpus),
+        coverage_tables=coverage,
+    )
+    # Nothing forces a refresh-only commit to have anything to say. An empty
+    # one would still be a legitimate commit (SPEC.md 3.3 rule 4b), but it
+    # would claim a refresh happened when nothing was re-rendered.
+    pending = dict(render_main(config.repo_root, context))
+    pending.update(extra_changes)
+    refreshed = _differs_from_worktree(config.corpus, pending)
+    if refreshed:
+        # The parent names this refresh uniquely: every refresh has a distinct
+        # one, and "the refresh applied on top of <commit>" is what a citation
+        # of it means. The snapshot-derived id belongs to the update that
+        # minted the snapshot and cannot be reused here.
+        commit_instruction_refresh(
+            config.repo_root,
+            config.corpus,
+            source_time=tip_time,
+            source_id="refresh@" + git_output(config.corpus, ["rev-parse", "HEAD"]),
+            context=context,
+            extra_changes=extra_changes,
+        )
+    return BuildReport(
+        head=git_output(config.corpus, ["rev-parse", "HEAD"]),
+        commits=int(git_output(config.corpus, ["rev-list", "--count", "HEAD"])),
+        events=0,
+        snapshot=snapshot,
+        coverage=coverage,
+        events_by_source={},
+        refreshed=refreshed,
+        tagged=False,
     )
 
 
