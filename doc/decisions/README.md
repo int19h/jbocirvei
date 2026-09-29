@@ -1,3 +1,3 @@
 # decisions/
 
-One dated file per adjudicated open question or benchmark gate: `YYYY-MM-DD-<slug>.md` with **Question**, **Decision**, **Rationale**, **Consequences** (spec sections amended).
+One dated file for each open question that the human partner has decided, and for each benchmark gate. Name the file `YYYY-MM-DD-<slug>.md`. Give it these parts: **Question**, **Decision**, **Rationale**, **Consequences** (list the spec sections that changed).

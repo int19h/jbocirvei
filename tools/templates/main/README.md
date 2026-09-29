@@ -2,17 +2,23 @@
 
 <!-- Generated file; edit the template on the tools branch. -->
 
-This repository republishes the Lojban community's public historical record as
-plain text under git: the wiki with its full revision history, the earlier Tiki
-wiki it replaced, the mailing lists, the IRC logs, the dictionary with its
-definition history, every edition of *The Complete Lojban Language*, and the
-formal grammars.
+This repository publishes the public historical record of the Lojban community
+again, as plain text in git. It contains:
 
-**Every commit is one source event** — a wiki revision, a mail message, a day
-of IRC, a definition version — authored by the person who made it and dated to
-when they made it. That is the whole idea. It means standard tools answer
-questions about the language's history: `rg` finds the words, and `git log`,
-`git blame` and `git show` find the when, the who, and what changed.
+- the wiki, with the full history of its revisions;
+- the older Tiki wiki that the current wiki replaced;
+- the mailing lists;
+- the IRC logs;
+- the dictionary, with the history of its definitions;
+- every edition of *The Complete Lojban Language*;
+- the formal grammars.
+
+**Each commit is one event from a source**: a wiki revision, a mail message, a
+day of IRC, or a version of a definition. The author of the commit is the
+person who made the event, and its date is when they made it. This is the main
+idea of the repository. It means that common tools can answer questions about
+the history of the language. `rg` finds the words. `git log`, `git blame` and
+`git show` find when something happened, who did it, and what changed.
 
 Snapshot `{{snapshot}}`.
 
@@ -24,10 +30,9 @@ Snapshot `{{snapshot}}`.
 
 {{coverage_tables}}
 
-This matters for reading answers as much as for finding them. "Nobody ever
-proposed that" is only ever shorthand for "not in what this snapshot covers",
-and the gaps files under `_meta/` record what was deliberately left out and
-why.
+This matters when you read an answer, not only when you look for one. "Nobody
+ever proposed that" always means only "not in what this snapshot covers". The
+gaps files under `_meta/` record what was left out on purpose, and why.
 
 ## Start here
 
@@ -48,12 +53,13 @@ git log --follow -p -- "wiki/main/BPFK_Section%3A_gadri.wiki" | less
 git show "$(git log -1 --format=%H --before=2015-06-01 -- wiki/main/xorlo.wiki)":wiki/main/xorlo.wiki
 ```
 
-If `cll/src` or the `src` directories under `grammars/` are empty, you cloned
-without `--recurse-submodules`; run `git submodule update --init --recursive`
-inside the clone. The plain-text editions under `cll/editions/` and the
-vendored grammars need no submodule, so most questions never require this — but
-an empty directory reads like a missing source, which is why it is worth
-checking first.
+`cll/src` and the `src` directories under `grammars/` may be empty. If they
+are, you cloned without `--recurse-submodules`. Run
+`git submodule update --init --recursive` inside the clone to fill them. Most
+questions do not need this step, because the plain-text editions under
+`cll/editions/` and the grammars copied into this repository need no
+submodule. But an empty directory looks like a missing source, so check for
+this first.
 
 ## Citing what you find
 
@@ -61,46 +67,54 @@ checking first.
 <path>@<Source-Id>:L<start>[-<end>]
 ```
 
-The `Source-Id` names the version rather than a commit hash, so citations
-survive a rebuild: `revid=<n>` for a wiki revision, the `Message-ID` for mail,
-the date for an IRC day, `definition=<id> version=<n>` for a dictionary entry,
-`cll=<edition>` for the book. The same ids appear in the commit trailers,
-alongside `Source:`, `Event:`, `Time-Confidence:` and, where they apply,
-`Event-Window:` and `Source-Date:` — so `git log --grep='Source-Id: revid=108932'`
-goes from a citation back to the commit. `AGENTS.md` has the full grammar,
-worked examples, and how to read each trailer.
+The `Source-Id` names a version of the source, not a commit hash, so a
+citation still works after the repository is built again. It is:
 
-Mail thread views and CLL edition text are renderings rather than originals;
-line 1 of each names what it was rendered from. The originals are the Maildir
-files and the `cll/src` submodule.
+- `revid=<n>` for a wiki revision;
+- the `Message-ID` for mail;
+- the date for a day of IRC;
+- `definition=<id> version=<n>` for a dictionary entry;
+- `cll=<edition>` for the book.
+
+The same ids appear in the commit trailers. Next to them are `Source:`,
+`Event:` and `Time-Confidence:`, and, where they apply, `Event-Window:` and
+`Source-Date:`. So `git log --grep='Source-Id: revid=108932'` takes you from a
+citation back to its commit. `AGENTS.md` gives the full citation format,
+examples, and how to read each trailer.
+
+The thread views of mail and the text of CLL editions are renderings. They are
+not the originals. Line 1 of each one names what it was made from. The
+originals are the Maildir files and the `cll/src` submodule.
 
 ## Contributing
 
-Research notes belong under `notes/<YYYY>/<date>-<slug>.md` and attestations
+Put research notes under `notes/<YYYY>/<date>-<slug>.md`, and attestations
 about identities in `who/attestations.csv`, as ordinary commits. Every claim in
-them must cite primary units, because notes are maps to the evidence rather
-than evidence themselves. `AGENTS.md` gives the citation grammar they must use.
+them must cite primary units. This is because a note is a map to the evidence,
+not evidence itself. `AGENTS.md` gives the citation format they must use.
 
-Data files are never edited by hand: this snapshot is generated.
+Never edit data files by hand. This snapshot is generated.
 
 ## Provenance and terms
 
 {{provenance}}
 
-Grammar and parser submodules keep their upstream licence files, and the
-per-source terms are indexed in `_meta/grammars/index.csv`.
+The grammar and parser submodules keep the licence files of their upstream
+projects. `_meta/grammars/index.csv` lists the terms for each source.
 
-Names and email addresses appear as the public archives hold them. The
-synthetic addresses used as git author placeholders — `…@mw.lojban.org`,
-`…@jbovlaste.lojban.org`, `irclogs@irc.lojban.org` — are not deliverable.
-Identities are recorded as dated, cited claims, never as resolved facts.
+Names and email addresses appear as the public archives hold them. Some
+addresses are made up, to fill the author field of git commits:
+`…@mw.lojban.org`, `…@jbovlaste.lojban.org`, `irclogs@irc.lojban.org`. Mail
+sent to them will not arrive. Who a person is, is recorded as a dated claim
+with a citation. It is never recorded as a settled fact.
 
 ## Reading this with an assistant
 
 Open the clone in a coding assistant and ask your question. `AGENTS.md` tells
-it how the repository is arranged, how to search each kind of file, and how to
-cite what it finds. Some harnesses read `AGENTS.md` on their own; others need
-to be pointed at it.
+the assistant how the repository is arranged, how to search each kind of
+file, and how to cite what it finds. Some assistants read `AGENTS.md` by
+themselves. Others must be told to read it.
 
-Built by tools commit `{{tools_commit}}`; rebuilding or updating this snapshot
-needs the tools and instructions on the `tools` branch of this repository.
+Built by tools commit `{{tools_commit}}`. To build this snapshot again or to
+update it, you need the tools and instructions on the `tools` branch of this
+repository.

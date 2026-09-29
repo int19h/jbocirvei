@@ -1,3 +1,3 @@
 # issues/
 
-Numbered issue drafts (`NNN-<slug>.md`: Scope, Acceptance criteria, Dependencies, Outcome) used until the GitHub tracker exists (`doc/SPEC.md §10.2`); migrated verbatim when it does.
+Numbered drafts of issues. Each file is named `NNN-<slug>.md` and has these parts: Scope, Acceptance criteria, Dependencies, Outcome. Use these drafts until the GitHub issue tracker exists (`doc/SPEC.md §10.2`). When it exists, move the drafts there word for word.

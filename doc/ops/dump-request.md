@@ -1,16 +1,23 @@
-> **Status 2026-09-14.** Lensisku, jbovlaste and Tiki exports were received on 2026-09-13 and are held in the local archive tier (per-user tables and `tiki_forums` were stripped locally; no re-export is needed). **Still wanted: the MediaWiki export (§2).**
+> **Status 2026-09-14.** We received the Lensisku, jbovlaste and Tiki exports on 2026-09-13. They are kept in the local archive tier. We removed the per-user tables and `tiki_forums` locally, so there is no need to export them again. **We still need the MediaWiki export (§2).**
 
 # Database export request — for the lojban.org server operator
 
-Purpose: jbomo'i (`https://github.com/int19h/jbomohi`) republishes the Lojban community's **public** record as a git repository with one commit per source event (wiki revision, definition edit, comment, …). Everything that is publicly visible on the sites goes in; everything that is not (passwords, e-mails, tokens, sessions, private messages, payments, IP addresses, unpublished/queued content, per-user notes, per-voter vote rows) must never leave your machine. The commands below produce exactly that split. Details and the reasoning behind every table are in `doc/research/dump-schemas.md` in the repository (verified against the jbovlaste, Lensisku, MediaWiki 1.38 and Tiki sources).
+Purpose: jbomo'i (`https://github.com/int19h/jbomohi`) publishes the **public** record of the Lojban community again, as a git repository. Each commit is one event from a source, such as a wiki revision, a change to a definition, or a comment.
 
-Three databases are wanted; one dump each, gzip'd. No checksums are needed. Rough sizes: Lensisku/jbovlaste tens of MB, MediaWiki a few hundred MB (the `text` table), Tiki tens of MB. Any transfer method is fine (a URL behind HTTP auth, scp, …); the files are consumed locally and are never checked into git or uploaded to CI.
+- Everything that the sites show to the public goes in.
+- Everything else must never leave your machine. This means passwords, e-mail addresses, tokens, sessions, private messages, payments, IP addresses, content that is not published or is still waiting in a queue, notes that belong to one user, and the rows that show how each person voted.
+
+The commands below split the data in exactly this way. The file `doc/research/dump-schemas.md` in the repository gives the details, and the reason for each table. It was checked against the source code of jbovlaste, Lensisku, MediaWiki 1.38 and Tiki.
+
+We need three databases, with one dump of each, compressed with gzip. We do not need checksums. The sizes are about: tens of MB for Lensisku/jbovlaste, a few hundred MB for MediaWiki (most of it is the `text` table), and tens of MB for Tiki. You can send the files in any way, for example a URL behind HTTP auth, or scp. We use the files only on our own machine. We never put them into git and never upload them to CI.
 
 ---
 
 ## 1. Lensisku (this is also the jbovlaste data)
 
-Lensisku's PostgreSQL database (`lojban_lens`) *is* the jbovlaste database migrated in place (same `users`, `valsi`, `definitions`, `comments`, `definitionvotes` tables and ids), so one dump covers both. If a separate, frozen jbovlaste database still exists as well (a `jbovlaste` database distinct from `lojban_lens`), please dump it the same way (§1b) — it is the only place a pre-migration state could differ; if `lojban_lens` is the only one, §1b does not apply.
+The PostgreSQL database of Lensisku (`lojban_lens`) *is* the jbovlaste database. It was migrated in place, and it has the same `users`, `valsi`, `definitions`, `comments` and `definitionvotes` tables, with the same ids. So one dump covers both.
+
+There may also be a separate, frozen jbovlaste database (a `jbovlaste` database that is not `lojban_lens`). If there is, please dump it in the same way (§1b). It is the only place where the data from before the migration could be different. If `lojban_lens` is the only database, skip §1b.
 
 ```sh
 DB=lojban_lens   # the Lensisku database (contains the migrated jbovlaste tables)
@@ -40,7 +47,14 @@ psql "$DB" -c "\copy (SELECT definitionid, valsiid, langid, SUM(value) AS score,
 gzip lensisku-schema.sql lensisku-public-data.sql
 ```
 
-The exclusion list is the union of what the source schema and the 2026-09-13 export showed: everything per-user (chats with the site's AI assistant, notifications, settings, avatars, balances, subscriptions, follows, bookmarks, reactions, flashcard/quiz progress, collections — including private ones — and `users_view`, which exposes the private `votesize`), plus caches and the MediaWiki mirror we take from the source. If any table name above does not exist in your version, just drop that `-T` (a missing exclusion is harmless only if the table is absent; please do not remove an exclusion for a table that exists). If there are other tables you consider private, exclude them too and tell us their names.
+We built the list of excluded tables from two places: the source schema, and the export of 2026-09-13. The list leaves out:
+
+- everything that belongs to one user: chats with the AI assistant of the site, notifications, settings, avatars, balances, subscriptions, follows, bookmarks, reactions, progress in flashcards and quizzes, and collections (private ones too);
+- `users_view`, because it shows the private `votesize`;
+- caches;
+- the copy of the MediaWiki wiki, because we take the wiki from MediaWiki itself.
+
+If a table in the list does not exist in your version, remove its `-T`. Please do not remove the `-T` for a table that does exist: leaving it out is safe only when the table is not there. If you think other tables are private, exclude them too, and tell us their names.
 
 ### 1b. A separate jbovlaste database, if one still exists
 
@@ -55,7 +69,7 @@ psql "$DB" -c "\copy (SELECT definitionid, valsiid, langid, SUM(value) AS score,
 
 ## 2. MediaWiki (mw.lojban.org, 1.38.7 / MariaDB)
 
-`mysqldump` cannot filter columns, so the `user` table is exported separately with only its public columns.
+`mysqldump` cannot choose columns. So we export the `user` table on its own, with only its public columns.
 
 ```sh
 DB=my_wiki   # adjust
@@ -80,13 +94,20 @@ mysql --batch --raw $DB -e \
 
 ```
 
-`--hex-blob` and `--default-character-set=binary` are essential: `text.old_text` holds compressed binary and must not be transcoded. Tables deliberately **not** requested: `user_properties`, `user_former_groups`, `bot_passwords`, `ipblocks*`, `watchlist*`, `user_newtalk`, `recentchanges`, `ip_changes`, `filearchive`, `uploadstash`, `objectcache`, `cu_*`, and any `user` column other than the five above. Two notes: `archive` (deleted revisions) is requested because deleted-then-restored history matters, but drop it if you prefer; revisions with `rev_deleted` bits are masked by our importer, not by the dump, so the dump does contain them in the clear — treat the file accordingly.
+You must use `--hex-blob` and `--default-character-set=binary`. The column `text.old_text` holds compressed binary data, and its bytes must not be converted to another character set.
+
+We do **not** want these tables, on purpose: `user_properties`, `user_former_groups`, `bot_passwords`, `ipblocks*`, `watchlist*`, `user_newtalk`, `recentchanges`, `ip_changes`, `filearchive`, `uploadstash`, `objectcache`, `cu_*`. We also do not want any `user` column other than the five above.
+
+Two notes:
+
+- We ask for `archive` (the deleted revisions) because history that was deleted and then restored matters. You may leave it out if you prefer.
+- Our importer hides revisions that have `rev_deleted` bits set. The dump does not hide them, so the dump contains them as plain text. Handle the file with care because of this.
 
 ---
 
 ## 3. Tiki (tiki.lojban.org, the pre-2013 wiki)
 
-The Tiki tables are `latin1`-declared but hold UTF-8 bytes, and `tiki_history.data` is a blob while `tiki_pages.data` is text, so the character-set flags below are required or the current version and its own history will disagree byte-for-byte.
+The Tiki tables say they are `latin1`, but they hold UTF-8 bytes. Also, `tiki_history.data` is a blob, while `tiki_pages.data` is text. So you must use the character-set flags below. Without them, the bytes of the current version of a page will not match the bytes of the same version in its history.
 
 ```sh
 DB=tiki   # adjust
@@ -115,10 +136,25 @@ mysql --batch --raw $DB -e \
 
 ```
 
-Deliberately **not** requested: every other `users_users` column (`password`, `provpass`, `hash`, `challenge`, `valid`, `email`, login timestamps, avatars), the whole `tiki_forums` table (see above — its password columns cannot be filtered by `mysqldump`), `tiki_page_footnotes` (private per-user notes), `tiki_comments_queue` / `tiki_forums_queue` (never-published posts), `tiki_semaphores`, session/login tables, galleries and file blobs. The requested tables contain IP columns (`tiki_pages.ip`, `tiki_history.ip`, `tiki_comments.user_ip`, `tiki_actionlog.ip`); if you can null them before dumping (`UPDATE … SET ip=''` on a copy) please do — otherwise our importer discards them and they never enter the repository.
+We do **not** want these, on purpose:
+
+- any other `users_users` column (`password`, `provpass`, `hash`, `challenge`, `valid`, `email`, login times, avatars);
+- the whole `tiki_forums` table (see above: `mysqldump` cannot leave out its password columns);
+- `tiki_page_footnotes` (private notes of each user);
+- `tiki_comments_queue` and `tiki_forums_queue` (posts that were never published);
+- `tiki_semaphores`, the session and login tables, galleries, and file blobs.
+
+Some of the tables we ask for have IP columns: `tiki_pages.ip`, `tiki_history.ip`, `tiki_comments.user_ip` and `tiki_actionlog.ip`. If you can, please empty them before the dump (run `UPDATE … SET ip=''` on a copy). If you cannot, our importer throws them away, and they never go into the repository.
 
 ---
 
 ## 4. Nothing else is needed from the server
 
-Mailing lists come from the public `mail.lojban.org/lists-plain/*.maildir.zip` files and the MHonArc pages; IRC logs from `lojban.org/irclogs/`; ongoing wiki updates from the API and dictionary updates from Lensisku's public `/api/jbovlaste/changes` feed. If the `lists-plain` zips are regenerated on a schedule, knowing the cadence would help; if `llg-members`/`llg-board` are ever meant to be public, their `lists-plain` directories would be picked up automatically.
+We get the other data from public places:
+
+- the mailing lists from the public `mail.lojban.org/lists-plain/*.maildir.zip` files and the MHonArc pages;
+- the IRC logs from `lojban.org/irclogs/`;
+- new wiki changes from the wiki API;
+- new dictionary changes from the public `/api/jbovlaste/changes` feed of Lensisku.
+
+If the `lists-plain` zip files are made again on a schedule, it would help us to know how often. If `llg-members` or `llg-board` ever become public, we will pick up their `lists-plain` directories without any extra work.
