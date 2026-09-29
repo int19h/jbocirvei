@@ -196,7 +196,12 @@ def _gap_counts(path: Path, counts: dict[str, int]) -> int:
             total += 1
             reason = (row.get("reason") or row.get("cause") or "").strip()
             if reason:
-                counts[reason] = counts.get(reason, 0) + 1
+                # Rank by the kind of gap, not by its data. Some reasons end
+                # with a value, as in `date header unusable: <header>`. The
+                # value makes every row different, so the text before the
+                # first ": " is the key.
+                key = reason.split(": ", 1)[0]
+                counts[key] = counts.get(key, 0) + 1
     return total
 
 

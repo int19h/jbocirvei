@@ -210,6 +210,38 @@ def test_coverage_counts_the_gaps_files_of_each_channel(tmp_path: Path) -> None:
     assert "None recorded." not in table
 
 
+def test_coverage_ranks_gap_reasons_by_their_kind(tmp_path: Path) -> None:
+    """A value inside a reason does not hide the kind of the gap.
+
+    Each mail gap quotes its own date header, so no two reasons were equal and
+    the table gave no reason at all. Top-level and nested files are named in
+    path order, and a `cause` column counts as a reason.
+    """
+
+    corpus = _corpus_with(tmp_path, "mail")
+    (corpus / "_meta" / "mail").mkdir(parents=True, exist_ok=True)
+    (corpus / "_meta" / "mail" / "gaps.csv").write_text(
+        "list,cause\nx,date header unusable: Sat, 1 Jan 100\n", encoding="utf-8"
+    )
+    for name in ("a-list", "b-list"):
+        root = corpus / "_meta" / "mail" / name
+        root.mkdir(parents=True)
+        (root / "gaps.csv").write_text(
+            f"list,reason\n{name},date header unusable: Sun, 2 Jan 100\n{name},other\n",
+            encoding="utf-8",
+        )
+    tally = SourceTally()
+    tally.record(datetime(1990, 1, 1, tzinfo=UTC))
+
+    table = coverage_table(corpus, {"mail": tally})
+
+    assert (
+        "`_meta/mail/a-list/gaps.csv`, `_meta/mail/b-list/gaps.csv` and "
+        "`_meta/mail/gaps.csv` list 5 gaps. The most common reasons are "
+        '"date header unusable" (3) and "other" (2).'
+    ) in table
+
+
 def test_coverage_names_many_gaps_files_by_one_pattern(tmp_path: Path) -> None:
     corpus = _corpus_with(tmp_path, "irc")
     for channel in ("a", "b", "c", "d"):
