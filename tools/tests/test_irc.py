@@ -279,9 +279,9 @@ def test_projected_days_commit_as_one_source_event_each(tmp_path: Path) -> None:
     assert git(corpus, "rev-list", "--count", "HEAD") == "2"
     assert set(git(corpus, "ls-tree", "-r", "--name-only", "HEAD").splitlines()) == {
         "_meta/irc/lojban/days.csv",
-        # SPEC.md 3.4 gives IRC a day index and a gaps file; neither says how
-        # far the archive itself reaches, so the final event carries a coverage
-        # file as well.
+        # SPEC.md 3.4 gives IRC a day index and a gaps file. Neither tells how
+        # far the archive itself goes. So the last event also carries a
+        # coverage file.
         "_meta/irc/lojban/coverage.toml",
         "irc/lojban/2014/2014-03-01.txt",
         "irc/lojban/2014/2014-03-02.txt",
@@ -484,11 +484,12 @@ def test_units_sort_by_actual_instant_across_offsets() -> None:
 
 
 def test_coverage_distinguishes_a_short_record_from_a_short_fetch() -> None:
-    """A channel that stops in 2022 needs to say which kind of stop it was.
+    """A channel that stops in 2022 must tell which kind of stop it was.
 
-    `days.csv` lists what was projected and `gaps.csv` what was recorded absent
-    within that span. Neither reaches past the last day held, so a fetch that
-    died mid-run and a conversation that ended looked identical.
+    `days.csv` lists what the projector wrote. `gaps.csv` lists what it
+    recorded as absent inside that span. Neither goes past the last day that
+    the archive holds. So a fetch that stopped halfway and a conversation that
+    ended looked the same.
     """
 
     from jbomohi_tools.project.irc import ChannelArchive, _coverage_toml
@@ -516,8 +517,8 @@ def test_coverage_distinguishes_a_short_record_from_a_short_fetch() -> None:
     assert "files_listed_but_not_archived = 0" in complete
     assert "note = " not in complete
 
-    # A range block covers many days in one file, so the date fields read its
-    # endpoints rather than its key.
+    # A range block covers many days in one file. So the date fields read its
+    # end dates, not its key.
     ranged = _coverage_toml(
         "lojban",
         [_unit("lojban", "2000-05-26..2000-10-28")],
@@ -543,12 +544,12 @@ def test_coverage_distinguishes_a_short_record_from_a_short_fetch() -> None:
     )
     assert "files_the_server_listed = 953" in truncated
     assert "files_listed_but_not_archived = 951" in truncated
-    # The distinction the file exists for.
+    # This is the difference that the file exists to show.
     assert "the gap is in the fetch rather than in the record" in truncated
 
 
 def test_coverage_counts_days_recorded_absent_separately() -> None:
-    """Days inside the span that were never logged are not a fetch failure."""
+    """Days inside the span that nobody logged are not a fetch failure."""
 
     from datetime import date as _date
 
@@ -566,7 +567,7 @@ def test_coverage_counts_days_recorded_absent_separately() -> None:
 
 
 def _unit(channel: str, day: str):
-    """A minimal projected unit, for renderers that only read its date."""
+    """A minimal projected unit, for the renderers that read only its date."""
 
     from datetime import datetime as _dt
 
@@ -582,18 +583,18 @@ def _unit(channel: str, day: str):
         source_lines=1,
         messages=1,
         nicks=1,
-        # A range key is `<from>..<to>`; its unit is dated by the end.
+        # A range key is `<from>..<to>`. The unit gets the date of the end.
         source_time=_dt.fromisoformat(f"{day.split('..')[-1]}T23:59:59+00:00"),
         time_confidence="exact",
     )
 
 
 def test_a_day_is_read_from_either_spelling_of_a_file_name() -> None:
-    """SPEC.md 3.4: a wholly undated file becomes the day its file name names.
+    """SPEC.md 3.4: a file with no dates becomes the day that its file name gives.
 
-    #jbosnu holds one hand-saved log named `…_04_Apr_2004.txt`. The rule is
-    about the day a name states, not about one spelling of it, and the whole
-    build failed on this single file out of 2,611.
+    #jbosnu holds one log that a person saved by hand, named
+    `…_04_Apr_2004.txt`. The rule is about the day that a name gives, not about
+    one spelling of it. The whole build failed on this one file out of 2,611.
     """
 
     from jbomohi_tools.project.irc import _day_from_filename
@@ -603,7 +604,7 @@ def test_a_day_is_read_from_either_spelling_of_a_file_name() -> None:
     assert _day_from_filename("jbosnu-robins_history_04_Apr_2004.txt") == date(
         2004, 4, 4
     )
-    # A name that states no day is still a name that states no day.
+    # A name that gives no day still gives no day.
     assert _day_from_filename("all_logs.txt") is None
     assert _day_from_filename("32_Foo_2004.txt") is None
 
@@ -620,17 +621,17 @@ def test_an_undated_file_named_with_a_month_projects_to_that_day() -> None:
     assert unit.date_key == "2004-04-04"
     assert unit.format == "undated"
     assert unit.output_path == "irc/jbosnu/2004/2004-04-04.txt"
-    # Undated lines keep the explicit placeholder rather than a guessed time.
+    # Undated lines keep the explicit placeholder, not a guessed time.
     assert all(line.startswith("--:--:-- ") for line in unit.body)
     assert unit.time_confidence == "window"
 
 
 def test_a_configured_channel_with_nothing_archived_is_absent_not_invisible() -> None:
-    """A reader told "negative answers are relative to coverage" needs to see it.
+    """A reader who hears "negative answers are relative to coverage" must see it.
 
-    #ckule was configured and never fetched, so the projector had no objects
-    for it and said nothing at all: no row, no gaps entry, nothing. A channel
-    that is missing and a channel that does not exist looked identical.
+    #ckule was in the configuration, but nobody fetched it. So the projector
+    had no objects for it and wrote nothing about it: no row, no gaps entry. A
+    channel that is missing and a channel that does not exist looked the same.
     """
 
     source = SourceObject(
@@ -652,7 +653,7 @@ def test_a_configured_channel_with_nothing_archived_is_absent_not_invisible() ->
         assert f'channel = "{absent}"' in text
         assert "files = 0" in text
         assert "never fetched" in text
-    # The channel that was fetched says what it holds, not what it lacks.
+    # The fetched channel tells what it holds, not what it does not hold.
     held = changes["_meta/irc/lojban/coverage.toml"]
     held_text = held.decode() if isinstance(held, bytes) else held
     assert "files = 1" in held_text
@@ -660,12 +661,13 @@ def test_a_configured_channel_with_nothing_archived_is_absent_not_invisible() ->
 
 
 def test_coverage_refuses_to_size_a_gap_a_partial_walk_cannot_size() -> None:
-    """An unfinished walk compares a few directories against themselves.
+    """A walk that did not finish compares a few directories with themselves.
 
-    jbosnu's coverage file said ten files were listed but not archived, and a
-    reader concluded the channel was ten files from complete. It was 1,775
-    files and thirteen years short: the fetch had walked 126 of 254 directories,
-    so the count of what exists was as partial as the count of what was taken.
+    The coverage file of jbosnu said that the server listed ten files that the
+    archive did not hold. A reader then thought that the channel was ten files
+    from complete. It was 1,775 files and thirteen years short. The fetch
+    walked only 126 of 254 directories. So the count of what exists was as
+    partial as the count of what the fetch took.
     """
 
     from jbomohi_tools.project.irc import ChannelArchive, _coverage_toml
@@ -688,7 +690,7 @@ def test_coverage_refuses_to_size_a_gap_a_partial_walk_cannot_size() -> None:
     assert "index_walk_complete = false" in partial
     assert "126 of 254 directories were visited" in partial
     assert "lower bound on what is missing, not its size" in partial
-    # The claim that was wrong, and must not be made here.
+    # This is the wrong claim, and the file must not make it here.
     assert "refetching closes it" not in partial
 
     absent_index = _coverage_toml(
@@ -718,15 +720,16 @@ def test_coverage_refuses_to_size_a_gap_a_partial_walk_cannot_size() -> None:
 
 
 def test_every_channel_s_meta_rides_the_stream_s_final_event() -> None:
-    """A channel that gained no day still needs its coverage re-rendered.
+    """A channel with no new day still needs a new render of its coverage.
 
-    Each channel's index and coverage used to ride that channel's own last
-    unit. In an update, an event already in the corpus is skipped, so a
-    complete channel's meta was never rewritten: #lojban's coverage.toml kept
-    `days = 7956` and a range key in `first_day` — the shape from before those
-    were fixed — while the two channels that gained days got the current one.
-    Attaching every channel's meta to the stream's final event is what lets the
-    refresh commit carry it.
+    Before, the index and coverage of each channel went with the last unit of
+    that channel. An update skips an event that is already in the corpus. So
+    the build never wrote the meta files of a complete channel again. The
+    coverage.toml of #lojban kept `days = 7956` and a range key in
+    `first_day`. That was the form from before the fix of those fields. The
+    two channels with new days got the current form. Now the meta files of
+    every channel go with the last event of the stream. So the refresh commit
+    carries them.
     """
 
     sources = [
@@ -743,7 +746,7 @@ def test_every_channel_s_meta_rides_the_stream_s_final_event() -> None:
     events = list(project(sources))
 
     assert [event.source for event in events] == ["irc/lojban", "irc/jbosnu"]
-    # The older channel's own event carries its day file and nothing else.
+    # The event of the older channel carries its day file and nothing else.
     assert set(events[0].changes) == {"irc/lojban/2014/2014-03-01.txt"}
     final = events[-1].changes
     for channel in ("lojban", "jbosnu"):

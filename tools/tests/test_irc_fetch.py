@@ -196,7 +196,7 @@ def test_http_client_bounds_response_bytes_and_redirect_origin(
         "jbomohi_tools.archive.irc.urlopen",
         lambda *_args, **_kw: Response("https://example.org/escape"),
     )
-    with pytest.raises(IrcFetchError, match="escaped the source origin"):
+    with pytest.raises(IrcFetchError, match="is not from the source origin"):
         HttpClient().get("https://lojban.org/irclogs/x")
 
 
@@ -244,11 +244,11 @@ def test_http_client_retries_transient_errors_with_bounded_backoff(
 
 
 def test_one_failing_channel_does_not_abandon_the_others(tmp_path: Path) -> None:
-    """A dead channel cost us both small ones for an entire evening.
+    """One channel that failed stopped both small channels for a whole evening.
 
-    The loop was sequential and an HTTP failure propagated out of it, so
-    #ckule and #jbosnu were never attempted while #lojban returned 522. They
-    are small and would have finished in minutes.
+    The loop fetched one channel after the other, and an HTTP failure went up
+    out of the loop. So while #lojban returned 522, the fetch never tried
+    #ckule and #jbosnu. They are small and needed only minutes.
     """
 
     class _PartlyBroken:
@@ -262,17 +262,17 @@ def test_one_failing_channel_does_not_abandon_the_others(tmp_path: Path) -> None
             return HttpResponse(url=url, body=b"<html></html>", headers={})
 
     client = _PartlyBroken()
-    with pytest.raises(IrcFetchError, match="channels that failed"):
+    with pytest.raises(IrcFetchError, match="these channels failed"):
         fetch(tmp_path / "archive", client=client)
 
     asked = " ".join(client.asked)
-    # Every channel was attempted, not just the ones before the failure.
+    # The fetch tried every channel, not only the ones before the failure.
     for channel in ("ckule", "jbosnu", "lojban"):
         assert f"/irclogs/{channel}/" in asked, channel
 
 
 def test_channels_are_ordered_smallest_first() -> None:
-    """Ordering alone stops a stalled giant starving the small channels."""
+    """The order alone stops a large channel that stalls from blocking the others."""
 
     from jbomohi_tools.archive.irc import CHANNELS
 
@@ -283,10 +283,10 @@ def test_channels_are_ordered_smallest_first() -> None:
 def test_a_refetched_directory_index_is_counted_once(tmp_path: Path) -> None:
     """Two manifests for one index are two versions of it, not two directories.
 
-    The current month's index changes whenever a day is added, and every
-    version is kept. Summing them counted that month's files once per fetch,
-    which inflates what the server is said to have listed and so understates
-    the gap.
+    The index of the current month changes each time the server adds a day,
+    and the archive keeps every version. The sum of all versions counted the
+    files of that month once for each fetch. That made the count of files
+    that the server listed too large, so the gap looked too small.
     """
 
     from jbomohi_tools.project.irc import load_channel_archives
@@ -315,12 +315,12 @@ def test_a_refetched_directory_index_is_counted_once(tmp_path: Path) -> None:
 
 
 def test_an_interrupted_walk_is_visible_in_the_channel_archive(tmp_path: Path) -> None:
-    """A fetch that dies after one directory must not look nearly complete.
+    """A fetch that stops after one directory must not look almost complete.
 
-    `listed` comes from the indexes that were archived, so a walk that visited
-    one directory of three compares that directory against itself. The channel
-    index says how many directories exist, which is what makes the shortfall
-    visible at all.
+    `listed` comes from the archived indexes. So a walk that visited one
+    directory of three compares that directory with itself. The channel index
+    tells how many directories exist. Only that number makes the shortfall
+    visible.
     """
 
     from jbomohi_tools.project.irc import load_channel_archives
@@ -350,5 +350,5 @@ def test_an_interrupted_walk_is_visible_in_the_channel_archive(tmp_path: Path) -
     assert archive.directories_listed == 3
     assert archive.directories_walked == 1
     assert archive.walk_complete is False
-    # The trap: one of one file taken, from one of three directories.
+    # The trap: the fetch took one file of one, from one directory of three.
     assert (archive.listed, archive.held, archive.unfetched) == (1, 1, 0)

@@ -19,11 +19,12 @@ TEMPLATES = WORKSPACE / "tools" / "templates" / "main"
 
 
 def utc_z(value: str) -> str:
-    """Spell a zero UTC offset as `Z`, whichever form git printed.
+    """Write a zero UTC offset as `Z`, in either form that git prints.
 
     For `%aI`, `%cI` and `--date=iso-strict`, some git versions print a zero
-    offset as `Z` and others as `+00:00`. Both are the same ISO 8601 instant,
-    so the tests accept either and still pin the date and the zero offset.
+    offset as `Z`, and others print `+00:00`. Both forms are the same ISO 8601
+    instant. So the tests accept either form, and still pin the date and the
+    zero offset.
     """
 
     return value[: -len("+00:00")] + "Z" if value.endswith("+00:00") else value
@@ -92,9 +93,9 @@ def publish_main(source: Path, seed: Path) -> str:
 def clone_and_init(seed: Path, clone: Path) -> tuple[Config, str]:
     """Clone the tools checkout, create the corpus, and build its root.
 
-    SPEC.md 2.2: the corpus is its own repository, and `init` leaves it empty
-    when the remote publishes no `main` — the root commit comes from the first
-    build, not from init.
+    SPEC.md 2.2: the corpus is its own repository. If the remote publishes no
+    `main`, `init` leaves the corpus empty. The first build makes the root
+    commit, not init.
     """
 
     run(seed.parent, "git", "clone", "--branch", "tools", str(seed), str(clone))
@@ -110,16 +111,17 @@ def clone_and_init(seed: Path, clone: Path) -> tuple[Config, str]:
     assert status.branch == "main"
     assert status.commits == 0
     assert status.head is None
-    # The corpus keeps its own objects, which is the point of the change.
+    # The corpus keeps its own objects. That is the purpose of the change.
     assert (config.corpus / ".git" / "objects").is_dir()
-    # It also inherits where to publish, so the maintainer configures one remote.
+    # It also takes its remote from the tools checkout, so the maintainer
+    # configures only one remote.
     assert git(config.corpus, "remote", "get-url", "origin") == git(
         clone, "remote", "get-url", "origin"
     )
 
     report = build_corpus(config, {})
     status = corpus_status(config.corpus)
-    # A build with no sources is the root plus the tip refresh.
+    # A build with no sources makes the root and one refresh commit at the tip.
     assert status.commits == 2
     assert status.head == report.head
     return config, git(config.corpus, "rev-list", "--max-parents=0", "HEAD")
@@ -160,13 +162,13 @@ def test_clean_clone_gets_one_rendered_epoch_root(tmp_path: Path) -> None:
     }
     readme = git(config.corpus, "show", f"{root}:README.md")
     assert "{{" not in readme
-    # SPEC.md 3.11/§5: the root names neither the tools commit nor a snapshot,
-    # so that a tools commit does not rewrite every hash in main. The tip
-    # refresh commit carries both.
+    # SPEC.md 3.11/§5: the root names neither the tools commit nor a snapshot.
+    # So a new tools commit does not change every hash in main. The refresh
+    # commit at the tip contains both.
     assert tools_commit not in readme
-    # The property is that the root renders the placeholder rather than a real
-    # build's identity. Pinning the sentence around it made an edit to the
-    # README's prose look like a regression in the root contract.
+    # The test checks that the root renders the placeholder, not the identity of
+    # a real build. An earlier test pinned the full sentence. Then an edit to the
+    # README prose looked like a regression in the contract of the root.
     assert "`pending`" in readme
     schema = git(config.corpus, "show", f"{root}:_meta/schema.toml")
     assert "tools_commit" not in schema
@@ -208,11 +210,11 @@ def occupied_corpus_config(tmp_path: Path, corpus: Path) -> Config:
 def test_corpus_init_rejects_a_repository_holding_unrelated_history(
     tmp_path: Path,
 ) -> None:
-    """SPEC.md 2.2: a standalone corpus cannot be recognised by its objects.
+    """SPEC.md 2.2: nobody can recognize a standalone corpus by its objects.
 
-    While the corpus was a worktree, belonging to the tools repository was the
-    check. It is now its own repository, so the tell is the one file every
-    projected commit carries.
+    While the corpus was a worktree, the check was that it belonged to the tools
+    repository. Now it is its own repository. So the sign is the one file that
+    every projected commit contains.
     """
 
     unrelated = tmp_path / "corpus"
@@ -239,10 +241,10 @@ def test_corpus_init_rejects_a_repository_holding_unrelated_history(
 
 
 def test_corpus_init_clones_a_published_main(tmp_path: Path) -> None:
-    """SPEC.md 2.2: where the remote already publishes main, init fetches it.
+    """SPEC.md 2.2: if the remote already publishes main, init fetches it.
 
-    Only the first maintainer ever builds a root; everyone else starts from
-    what is published, and their corpus tracks it.
+    Only the first maintainer builds a root. All other maintainers start from
+    the published main, and their corpus tracks it.
     """
 
     seed = tmp_path / "seed"
@@ -266,7 +268,7 @@ def test_corpus_init_clones_a_published_main(tmp_path: Path) -> None:
     assert git(config.corpus, "rev-parse", "--abbrev-ref", "main@{upstream}") == (
         "origin/main"
     )
-    # A second init accepts it: the schema file is the tell that it is a corpus.
+    # A second init accepts it, because the schema file shows that it is a corpus.
     again, created_again = init_corpus(config)
     assert not created_again
     assert again.head == published
@@ -282,7 +284,7 @@ def test_corpus_init_rejects_a_repository_on_another_branch(tmp_path: Path) -> N
 
 
 def test_corpus_init_rejects_the_old_worktree_layout(tmp_path: Path) -> None:
-    """A corpus left as a worktree keeps its objects in the tools checkout."""
+    """A corpus that is still a worktree keeps its objects in the tools checkout."""
 
     seed = tmp_path / "tools-repo"
     seed_tools_repo(seed)
@@ -321,7 +323,7 @@ def test_instruction_refresh_is_one_source_event(tmp_path: Path) -> None:
         context=context,
     )
     assert refreshed != root
-    # The build left the root and its tip refresh; this adds a third commit.
+    # The build made the root and the refresh at its tip. This adds a third commit.
     assert git(config.corpus, "rev-list", "--count", "HEAD") == "3"
     assert (
         utc_z(git(config.corpus, "show", "-s", "--format=%aI"))

@@ -1,4 +1,7 @@
-"""Pure MediaWiki revision parsing and projection."""
+"""Parse MediaWiki revisions and project them, with pure functions.
+
+A pure function uses only its input and changes nothing else.
+"""
 
 from __future__ import annotations
 
@@ -21,7 +24,7 @@ from ..git import UNTITLED, Event, Identity
 
 
 class WikiParseError(ValueError):
-    """A wiki response or projection invariant failed closed."""
+    """A wiki response or a projection invariant (a rule that must hold) failed."""
 
 
 NAMESPACE_DIRS = {
@@ -100,15 +103,15 @@ class WikiRevision:
     text_missing: bool = False
     user_hidden: bool = False
     comment_hidden: bool = False
-    # The source records no author at all, which SPEC.md 2.5 keeps distinct
-    # from a suppressed one: `unrecorded@` rather than `anonymous@`.
+    # The source records no author at all. SPEC.md 2.5 keeps this case apart
+    # from a suppressed author: `unrecorded@`, not `anonymous@`.
     author_unrecorded: bool = False
-    # Why the content could not be resolved, for the gaps.csv row. Each input
-    # can only say what it itself could not resolve — the API knows the blob is
-    # gone, the export knows which `text` row is missing — so this explanation
-    # is deliberately outside the revision's identity: the two paths agree that
-    # the text is unresolvable, and the export's more specific cause wins when
-    # both are loaded.
+    # The reason why the code cannot resolve the content, for the gaps.csv row.
+    # Each input can only name its own failure. The API knows that the text
+    # blob is gone. The export knows which `text` row is missing. Thus this
+    # reason is outside the identity of the revision on purpose. The two paths
+    # agree that the text cannot be resolved. If both inputs are loaded, the
+    # more specific cause from the export wins.
     text_cause: str = dataclass_field(default="", compare=False)
 
 
@@ -148,8 +151,8 @@ class WikiLogEvent:
     target_title: str | None = None
     suppress_redirect: bool = False
     move_redir: bool = False
-    # The source records no actor for this entry at all, which SPEC.md 2.5
-    # keeps distinct from a suppressed one: `unrecorded@`, not `anonymous@`.
+    # The source records no actor at all for this entry. SPEC.md 2.5 keeps this
+    # case apart from a suppressed actor: `unrecorded@`, not `anonymous@`.
     author_unrecorded: bool = False
 
 
@@ -293,10 +296,10 @@ def _revision(raw: object, pageid: int) -> WikiRevision:
         if not text_missing:
             content = content_value
     if content is not None:
-        # SPEC.md 3.2: content that disagrees with the source's declared size or
-        # SHA-1 is a missing blob, not text. MediaWiki serves an empty string
-        # for a revision whose `text` row is gone while still declaring the
-        # original length, and publishing that as an empty page would be a lie.
+        # SPEC.md 3.2: if content disagrees with the size or SHA-1 that the
+        # source declares, it is a missing blob, not text. If the `text` row of a
+        # revision is gone, MediaWiki serves an empty string but still declares
+        # the original length. To publish that as an empty page is false.
         payload = content.encode("utf-8")
         if size is not None and len(payload) != size:
             content, text_missing = None, True
@@ -362,7 +365,7 @@ def parse_revision_response(payload: bytes) -> list[WikiPageFragment]:
 
 
 def parse_log_response(payload: bytes) -> list[WikiLogEvent]:
-    """Parse move/delete entries from one formatversion=2 logevents response."""
+    """Parse the move and delete entries from one formatversion=2 logevents response."""
 
     try:
         document = json.loads(payload)
@@ -436,7 +439,7 @@ def parse_log_response(payload: bytes) -> list[WikiLogEvent]:
 
 
 def parse_media_response(payload: bytes) -> list[WikiMedia]:
-    """Parse manifest-only file metadata from an allimages response."""
+    """Parse file metadata from an allimages response, for the file list only."""
 
     try:
         document = json.loads(payload)
@@ -487,7 +490,10 @@ def parse_media_response(payload: bytes) -> list[WikiMedia]:
 
 
 def load_archive(archive: Path) -> list[WikiPageFragment]:
-    """Load and verify the newest archived response for each revision query."""
+    """Load the newest archived response for each revision query.
+
+    The function makes sure that each response matches its manifest.
+    """
 
     root = archive / "manifests" / "wiki" / "revisions"
     if not root.exists():
@@ -529,7 +535,10 @@ def load_archive(archive: Path) -> list[WikiPageFragment]:
 
 
 def load_log_archive(archive: Path) -> list[WikiLogEvent]:
-    """Load, verify, and deduplicate archived move/delete log batches."""
+    """Load the archived move and delete log batches, and remove duplicates.
+
+    The function makes sure that each batch matches its manifest.
+    """
 
     root = archive / "manifests" / "wiki" / "logevents"
     if not root.exists():
@@ -577,7 +586,10 @@ def load_log_archive(archive: Path) -> list[WikiLogEvent]:
 
 
 def load_media_archive(archive: Path) -> list[WikiMedia]:
-    """Load and verify archived allimages metadata batches."""
+    """Load the archived allimages metadata batches.
+
+    The function makes sure that each batch matches its manifest.
+    """
 
     root = archive / "manifests" / "wiki" / "media"
     if not root.exists():
@@ -643,11 +655,11 @@ def merge_fragments(fragments: Iterable[WikiPageFragment]) -> list[WikiPage]:
                         f"revision {revision.revid}: inconsistent duplicate response"
                     )
                 if previous is not None and previous.text_cause:
-                    # Identical revisions may still explain unresolvable text
-                    # differently, because each input can only say what it
-                    # itself could not resolve. The first explanation offered
-                    # stands, and `combine_inputs` puts the export first
-                    # because it names the missing `text` row.
+                    # Two identical revisions can still give different causes
+                    # for text that cannot be resolved, because each input can
+                    # only name its own failure. The first cause stays.
+                    # `combine_inputs` puts the export first, because the
+                    # export names the missing `text` row.
                     continue
                 revisions[revision.revid] = revision
         ordered = tuple(sorted(revisions.values(), key=lambda item: item.revid))
@@ -661,7 +673,7 @@ def _anonymous(user: str | None) -> bool:
 
 
 def _log_author(item: WikiLogEvent) -> Identity:
-    """Attribute a log entry, keeping `unrecorded` apart from `anonymous`."""
+    """Give a log entry its author. Keep `unrecorded` apart from `anonymous`."""
 
     if item.author_unrecorded:
         return Identity.unrecorded("mw.lojban.org")
@@ -706,12 +718,13 @@ def _coverage_toml(
 ) -> str:
     """Render what the wiki projection covers, and the additive classes.
 
-    The additive classes are kinds of row one input holds and the other
-    structurally cannot, so a reader can tell coverage apart from disagreement.
-    They were all this file held, and they all sit in `[additive.*]` tables, so
-    anything reading top-level counters found nothing here and reported the
-    wiki as covering nothing at all. The plain counts come first for that
-    reason: what is here, before what one input could not serve.
+    An additive class is a kind of row that one input holds and the other
+    input cannot hold by its design. With these classes, a reader can tell
+    coverage apart from disagreement. At first this file held only the
+    additive classes, all in `[additive.*]` tables. Thus a tool that read the
+    top-level counters found nothing here, and reported that the wiki covered
+    nothing at all. For that reason the plain counts come first: what is
+    here, before what one input cannot serve.
     """
 
     lines = [
@@ -755,7 +768,10 @@ class _WikiPlacementPlan:
 
 
 def _revision_components(page: WikiPage) -> tuple[tuple[WikiRevision, ...], ...]:
-    """Partition one API page response into its parent-linked lineages."""
+    """Split one API page response into its lineages.
+
+    A lineage is a chain of revisions that parent ids link together.
+    """
 
     revisions = {item.revid: item for item in page.revisions}
     unassigned = set(revisions)
@@ -788,15 +804,16 @@ def _page_move_chains(
     log_events: Sequence[WikiLogEvent],
     ended_at: Mapping[int, tuple[datetime, int]] = {},
 ) -> _WikiPlacementPlan:
-    """Recover each current revision lineage without trusting log page IDs.
+    """Recover each current revision lineage, and do not trust log page IDs.
 
-    `ended_at` bounds a lineage that no longer exists, as the `(timestamp,
-    logid)` of the deletion that ended it. A deleted page holds its title only
-    up to that point, so a later move into the title belongs to whichever page
-    took it afterwards; MediaWiki logs the deletion and the move that reuses
-    the title in the same second, which is why the bound needs the log id and
-    not the timestamp alone. Without it a reused title makes one move log fit
-    two lineages and placement fails closed.
+    `ended_at` bounds a lineage that no longer exists. The bound is the
+    `(timestamp, logid)` of the deletion that ended the lineage. A deleted page
+    holds its title only up to that point. A later move into the title belongs
+    to the page that took the title after it. MediaWiki logs the deletion and
+    the move that reuses the title in the same second. For this reason the
+    bound needs the log id, not only the timestamp. When a title is reused and
+    there is no bound, one move log fits two lineages. Then the move log
+    belongs to two pages, and placement stops with an error.
     """
 
     moves_by_target: dict[tuple[int, str], list[WikiLogEvent]] = defaultdict(list)
@@ -960,7 +977,10 @@ def _forced_move_times(
     plan: _WikiPlacementPlan,
     positions: dict[int, tuple[int, str]],
 ) -> dict[int, datetime]:
-    """Move migration-skewed marker/redirect revisions behind their rename."""
+    """Put marker and redirect revisions after their rename.
+
+    The function does this only for revisions whose time a migration skewed.
+    """
 
     effective = {
         move.logid: move.timestamp for chain in plan.chains.values() for move in chain
@@ -1006,11 +1026,11 @@ def _forced_move_times(
                 candidates.append(revision.timestamp)
         if candidates:
             forced = min(candidates)
-            # A page moved away and back between the same two titles gives both
-            # moves a null revision whose comment names both titles, so rule 4's
-            # test fits the second move as well as the first. A move can never
-            # be ordered at or before the move that precedes it in its own
-            # page's chain, so that pair is left alone.
+            # If a page moves away and back between the same two titles, both
+            # moves get a null revision whose comment names both titles. Thus
+            # the test of rule 4 fits the second move as well as the first. In
+            # the chain of its own page, a move can never come at or before the
+            # move before it. So the code leaves that pair alone.
             chain = plan.chains[owner]
             position = [move.logid for move in chain].index(logid)
             if position and forced <= effective[chain[position - 1].logid]:
@@ -1028,13 +1048,14 @@ def project(
     unaccounted: Iterable[int] = (),
     additive: Sequence[tuple[str, int, str]] = (),
 ) -> Iterator[Event]:
-    """Project API- or dump-derived revisions and log events identically.
+    """Project revisions and log events in the same way, from the API or the dump.
 
-    `extra_gaps` carries rows an input recorded before projection began, such as
-    the rows of the SQL export that name no projectable page (SPEC.md 3.2).
-    They are appended to `_meta/wiki/gaps.csv` in the order given. `ended_at`
-    gives, per backfilled deleted lineage, the `(timestamp, logid)` of the
-    deletion after which it no longer holds its title.
+    `extra_gaps` holds the rows that an input recorded before the projection
+    started. An example is a row of the SQL export that names no page that the
+    projector can project (SPEC.md 3.2). The function adds these rows to
+    `_meta/wiki/gaps.csv` in the given order. For each backfilled deleted
+    lineage, `ended_at` gives the `(timestamp, logid)` of a deletion. After
+    that deletion, the lineage no longer holds its title.
     """
 
     pages = merge_fragments(fragments)
@@ -1054,8 +1075,10 @@ def project(
     state_last_revision: dict[int, int | None] = {}
     held_by_path: dict[str, int] = {}
     placeholder_paths: set[str] = set()
-    # Why a path is a placeholder, so the release is reported in the right
-    # words: a merged pre-move chain, or a deleted lineage nothing accounts for.
+    # A placeholder path is one that a page holds only until another page
+    # claims it. This map keeps the reason for each placeholder, so that the
+    # gap row for its release uses the right words. The reason is a merged
+    # chain from before a move, or a deleted lineage that nothing accounts for.
     placeholder_reason: dict[str, str] = {}
     unaccounted_pages = set(unaccounted)
     for page in pages:
@@ -1068,8 +1091,8 @@ def project(
             "pageid": page.pageid,
             "ns": page.namespace,
             "title": page.title,
-            # SPEC.md 3.2/4.4: filled in after the walk, because whether a page
-            # still has a file is only known once every event has been applied.
+            # SPEC.md 3.2/4.4: the code fills this in after the walk. It knows
+            # if a page still has a file only after it applies every event.
             "state": "",
             "path": page.path,
             "is_redirect": str(page.is_redirect).lower(),
@@ -1370,13 +1393,13 @@ def project(
                 overwritten_last = state_last_revision[overwritten_pageid]
                 if overwritten_last is not None:
                     trailers["Overwritten-Last-Rev"] = str(overwritten_last)
-            # A rename whose source and target land on the same path moves
-            # nothing: MediaWiki normalizes the first letter in a first-letter
-            # namespace, so `Module:Documentation/doc` -> `Module:documentation/doc`
-            # is logged as a move and is a no-op. SPEC.md 3.2 keeps one source
-            # log as one commit so citations resolve, so the event is still
-            # projected — it simply carries no file change, as an unchanged
-            # source event does.
+            # If the source and target of a rename give the same path, the
+            # rename moves nothing. MediaWiki normalizes the first letter in a
+            # first-letter namespace. So `Module:Documentation/doc` ->
+            # `Module:documentation/doc` is logged as a move but changes
+            # nothing. SPEC.md 3.2 keeps one source log as one commit so that
+            # citations resolve. Thus the code still projects the event. The
+            # event carries no file change, as an unchanged source event does.
             renamed = target_path != old_path
             event = Event(
                 source="wiki",
@@ -1441,9 +1464,9 @@ def project(
             if held_by_path.get(path) == pageid:
                 row["state"] = "current"
             else:
-                # A page with no file at the tip carries no path: an index that
-                # points at nothing is worse to hand a reader than one that
-                # says plainly there is none (SPEC.md 3.2/4.4).
+                # A page with no file at the tip gets no path. An index that
+                # points at nothing is worse for a reader than one that says
+                # clearly that there is no file (SPEC.md 3.2/4.4).
                 row["state"] = "deleted" if pageid in written_pages else "not-projected"
                 row["path"] = ""
         final_changes["_meta/wiki/pages.csv"] = _csv(PAGE_COLUMNS, page_rows)

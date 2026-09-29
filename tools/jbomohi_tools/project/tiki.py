@@ -1,4 +1,7 @@
-"""Strict byte-level loading and projection for the historical Tiki export."""
+"""Load the historical Tiki export byte by byte, and project it into events.
+
+The loader is strict. It refuses any input that it cannot read without a guess.
+"""
 
 from __future__ import annotations
 
@@ -23,7 +26,7 @@ from .dictionary import slug
 
 
 class TikiParseError(ValueError):
-    """The Tiki export violates its public schema or SQL encoding."""
+    """The Tiki export does not follow its public schema or its SQL encoding."""
 
 
 TIKI_INSERT_COLUMNS: dict[str, tuple[str, ...]] = {
@@ -211,7 +214,10 @@ def _line(stream: BinaryIO, path: Path) -> bytes | None:
 def parse_insert_values(
     body: bytes, context: str = "Tiki INSERT"
 ) -> tuple[bytes | None, ...]:
-    """Parse one --skip-extended-insert VALUES tuple without decoding text."""
+    """Parse one VALUES tuple from a --skip-extended-insert dump.
+
+    Do not decode the text.
+    """
 
     return sqldump.parse_insert_values(body, context, TikiParseError)
 
@@ -222,7 +228,10 @@ def load_tiki_dump(
     *,
     forbidden: frozenset[str] = FORBIDDEN_TIKI_TABLES,
 ) -> RawTikiDump:
-    """Load selected one-row MySQL INSERT statements and reject private tables."""
+    """Load the selected MySQL INSERT statements, which have one row each.
+
+    If the dump holds a private table, refuse the dump.
+    """
 
     wanted = {name: tuple(columns) for name, columns in expected.items()}
     rows: dict[str, list[Mapping[str, bytes | None]]] = {name: [] for name in wanted}
@@ -269,7 +278,7 @@ def load_tiki_dump(
             values = parse_insert_values(matched.group(2), f"{path}: {table}")
             if len(values) != len(columns):
                 raise TikiParseError(
-                    f"Tiki SQL dump {path} has {len(values)} values for {table}; "
+                    f"Tiki SQL dump {path} has {len(values)} values for {table}, "
                     f"expected {len(columns)}"
                 )
             rows[table].append(dict(zip(columns, values, strict=True)))
@@ -293,7 +302,7 @@ def decode_character_text(
     *,
     allow_nul: bool = False,
 ) -> tuple[str, str]:
-    """Decode a character column under the selected export connection mode."""
+    """Decode a character column in the connection mode that the export used."""
 
     if mode == "utf8":
         try:
@@ -318,7 +327,7 @@ def decode_character_text(
 def decode_history_blob(
     value: bytes, context: str, *, allow_nul: bool = False
 ) -> tuple[str, str]:
-    """Decode raw historical blobs without replacing any byte."""
+    """Decode raw historical BLOBs. Do not replace any byte."""
 
     try:
         decoded = value.decode("utf-8")
@@ -367,7 +376,7 @@ def _load_tsv(
             fields = raw.split(b"\t")
             if len(fields) != len(columns):
                 raise TikiParseError(
-                    f"Tiki TSV {path}:{line_number} has {len(fields)} fields; "
+                    f"Tiki TSV {path}:{line_number} has {len(fields)} fields, "
                     f"expected {len(columns)}"
                 )
             rows.append(
@@ -385,7 +394,10 @@ def load_tiki_users(
     *,
     character_encoding: CharacterEncoding,
 ) -> TikiUsers:
-    """Load public login and consent-filtered real-name metadata."""
+    """Load the public logins and the real names.
+
+    If a user marked their information as private, do not keep their real name.
+    """
 
     users = _load_tsv(users_path, ("userId", "login"))
     preferences = _load_tsv(preferences_path, ("user", "prefName", "value"))
@@ -572,14 +584,15 @@ _CHARACTER_FIELDS: dict[str, tuple[str, ...]] = {
 
 
 def looks_like_stored_mojibake(text: str) -> bool:
-    """True when the text is a latin-1 reading of UTF-8 bytes.
+    """If the text is a latin-1 reading of UTF-8 bytes, return True.
 
-    The 2026-09-15 utf8mb4 re-export shows that some rows hold mojibake in the
-    database itself, from an earlier bad migration rather than from the export
-    client. SPEC.md 3.2.5(c) never repairs characters, so this only counts
-    them, and it counts them by definition rather than by looking for `Ã©`:
-    text that re-reads as different, valid UTF-8 when taken as latin-1 bytes
-    is exactly what a latin-1 reading of UTF-8 is.
+    The second export on 2026-09-15 used utf8mb4. It shows that some rows hold
+    mojibake in the database itself. Mojibake is text decoded with the wrong
+    character set. An earlier bad migration caused it, not the export client.
+    SPEC.md 3.2.5(c) never repairs characters, so this function only counts
+    them. It counts them by the definition, not by a search for `Ã©`. Take the
+    text as latin-1 bytes. If those bytes read as valid UTF-8 that is different
+    from the text, then the text is a latin-1 reading of UTF-8.
     """
 
     try:
@@ -740,7 +753,10 @@ def _render_comment_file(comments: Sequence[_Comment], users: TikiUsers) -> str:
 def _forum_topic(
     item: _Comment, comments: Mapping[int, _Comment]
 ) -> tuple[int, int | None]:
-    """Walk parentId to the topic root, retaining evidence for missing parents."""
+    """Follow parentId up to the root of the topic.
+
+    If a parent is missing, keep the evidence of it.
+    """
 
     current = item
     seen = {item.thread_id}
@@ -775,7 +791,10 @@ _TIKI_IMPORT_TEMPLATE = re.compile(
 def migrated_title_map(
     tiki_titles: Sequence[str], mediawiki_pages: Mapping[str, str]
 ) -> dict[str, str]:
-    """Map Tiki titles to MediaWiki by exact title or an import template."""
+    """Map Tiki titles to MediaWiki titles.
+
+    A map comes from an exact title match or from an import template.
+    """
 
     available = set(tiki_titles)
     result = {title: title for title in available if title in mediawiki_pages}
@@ -795,12 +814,11 @@ def migrated_title_map(
 
 
 def _fidelity_note(character_encoding: str) -> str:
-    """How far the reader may trust this projection's text.
+    """Say how far the reader can trust the text of this projection.
 
-    What it may claim is limited by what the two exports actually prove
-    (spec-lead, 2026-09-16). The latin1 client demonstrably altered text; equal
-    '?' counts demonstrate almost nothing, because most '?' are ordinary
-    punctuation.
+    The note can claim only what the two exports prove (spec-lead, 2026-09-16).
+    The evidence shows that the latin1 client changed text. Equal counts of '?'
+    prove almost nothing, because most '?' characters are ordinary punctuation.
     """
 
     return (
@@ -835,7 +853,7 @@ def project(
     character_encoding: CharacterEncoding,
     migrated_titles: Mapping[str, str] | None = None,
 ) -> Iterator[Event]:
-    """Project pages, WikiDiscuss posts, and page comments from one Tiki dump."""
+    """Project the pages, WikiDiscuss posts and page comments of one Tiki dump."""
 
     migrated = migrated_titles or {}
     fidelity_rows, fidelity_branches = _fidelity(data, character_encoding)
@@ -913,8 +931,8 @@ def project(
         else:
             skipped_other_comments += 1
 
-    # Forum 1 is the only projected forum (WikiDiscuss); ids 4 and 5 are the
-    # test forum and mailing-list mirror respectively.
+    # Forum 1 (WikiDiscuss) is the only forum that the code projects. Forum 4 is
+    # the test forum, and forum 5 is the mirror of the mailing list.
     forum_comments = {
         item.thread_id: item for item in comments if item.object_type == "forum"
     }
@@ -1084,9 +1102,9 @@ def project(
         }
         for thread_id, parent_id in sorted(dangling_forum.items())
     )
-    # SPEC.md 3.2/4.4: a row with no file at the tip carries an empty path and
-    # says why. Tiki has no rename or deletion log, so the only reason a page
-    # has no file is that every one of its versions was non-text (3.2.5(d)).
+    # SPEC.md 3.2/4.4: a row with no file at the tip has an empty path and gives
+    # the reason. Tiki has no log of renames or deletions. So a page has no file
+    # for one reason only: no version of the page was text (3.2.5(d)).
     projected_titles = {item.title for item in (*histories, *current_pages)}
     page_rows = []
     for title in all_titles:

@@ -1,4 +1,8 @@
-"""Strict in-process reader for the trunk history of an RCS archive."""
+"""A strict reader for the trunk history of an RCS archive.
+
+The reader runs inside this process. The trunk is the main line of revisions,
+with no branches.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +12,7 @@ from datetime import UTC, datetime
 
 
 class RcsParseError(ValueError):
-    """An RCS archive cannot be replayed without guessing."""
+    """The code cannot replay an RCS archive without a guess."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,7 +149,10 @@ def _apply_reverse_delta(content: bytes, delta: bytes, revision: str) -> bytes:
 
 
 def parse(payload: bytes) -> list[RcsRevision]:
-    """Return a validated trunk from oldest to newest."""
+    """Return the trunk revisions from oldest to newest.
+
+    The code first makes sure that the whole trunk is valid.
+    """
 
     if b"\0" in payload or b"\r" in payload:
         raise RcsParseError("RCS archive must be LF text without NUL bytes")
@@ -164,7 +171,7 @@ def parse(payload: bytes) -> list[RcsRevision]:
         if revision not in metadata or revision in delta_text:
             raise RcsParseError(f"unexpected RCS deltatext revision {revision}")
         if scanner.word() != b"log":
-            raise RcsParseError(f"RCS revision {revision} lacks log")
+            raise RcsParseError(f"RCS revision {revision} has no log")
         try:
             log = scanner.at_string().decode("utf-8")
         except UnicodeDecodeError as exc:
@@ -172,10 +179,10 @@ def parse(payload: bytes) -> list[RcsRevision]:
                 f"RCS revision {revision} has invalid log text"
             ) from exc
         if scanner.word() != b"text":
-            raise RcsParseError(f"RCS revision {revision} lacks text")
+            raise RcsParseError(f"RCS revision {revision} has no text")
         delta_text[revision] = (log, scanner.at_string())
     if set(delta_text) != set(metadata):
-        raise RcsParseError("RCS metadata and deltatext revisions disagree")
+        raise RcsParseError("RCS metadata and deltatext list different revisions")
 
     newest = delta_text[head][1]
     content_by_revision = {head: newest}

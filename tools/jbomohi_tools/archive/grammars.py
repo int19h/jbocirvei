@@ -1,4 +1,7 @@
-"""Bare-mirror acquisition for required grammar and parser repositories."""
+"""Get the required grammar and parser repositories as bare mirrors.
+
+A bare mirror is a git clone with all refs and no working tree.
+"""
 
 from __future__ import annotations
 
@@ -361,7 +364,7 @@ VENDOR_FILES = (
 
 
 class GrammarFetchError(ArchiveError):
-    """A required grammar mirror could not be updated safely."""
+    """The code was not able to update a required grammar mirror safely."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -467,7 +470,10 @@ def ingest_camxes_backup(
     *,
     fetched_at: datetime,
 ) -> Path:
-    """Validate and content-address the locally mirrored camxes RCS backup."""
+    """Make sure that the local copy of the camxes RCS backup is valid.
+
+    Then store it in the archive under the hash of its content.
+    """
 
     if source.is_symlink() or not source.is_file():
         raise GrammarFetchError(f"camxes backup is not a regular file: {source}")
@@ -484,7 +490,7 @@ def ingest_camxes_backup(
                 or not head_member.isfile()
             ):
                 raise GrammarFetchError(
-                    "camxes backup lacks its RCS archive or head file"
+                    "camxes backup has no RCS archive or no head file"
                 )
             rcs_stream = bundle.extractfile(rcs_member)
             head_stream = bundle.extractfile(head_member)
@@ -549,7 +555,11 @@ def fetch_vendor_files(
     fetched_at: datetime,
     client: VendorClient | None = None,
 ) -> tuple[Path, ...]:
-    """Fetch immutable official, Wayback, and provenance-only grammar files."""
+    """Fetch the grammar files that never change.
+
+    These are the official files, the Wayback files, and the files that the
+    record keeps only for provenance (a record of where data came from).
+    """
 
     http = client or GrammarHttpClient()
     manifests: list[Path] = []
@@ -619,7 +629,7 @@ def _peel(mirror: Path, ref: str) -> str:
     )
     object_id = result.stdout.strip()
     if result.returncode != 0 or not GIT_OBJECT_ID.fullmatch(object_id):
-        raise GrammarFetchError(f"grammar mirror lacks commit ref {ref!r}")
+        raise GrammarFetchError(f"grammar mirror has no commit ref {ref!r}")
     return object_id
 
 
@@ -767,7 +777,7 @@ def fetch(
     camxes_backup: Path | None = None,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
 ) -> GrammarFetchReport:
-    """Refresh every required grammar mirror and archive its current refs."""
+    """Update every required grammar mirror and archive its current refs."""
 
     fetched_at = now()
     if fetched_at.tzinfo is None:

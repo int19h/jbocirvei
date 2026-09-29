@@ -1,4 +1,7 @@
-"""Transactional build, update, snapshot, and verification orchestration."""
+"""Run the build, update, snapshot and verification steps.
+
+A build is transactional: it changes main only if every step succeeds.
+"""
 
 from __future__ import annotations
 
@@ -82,8 +85,8 @@ class BuildReport:
     events: int
     snapshot: str
     coverage: str
-    # What an update did, so that it can say so rather than leave the reader to
-    # infer it. A build sets neither: it writes everything by definition.
+    # What an update did, so that it can report it, and the reader does not
+    # have to guess. A build sets none of these, because it writes everything.
     events_by_source: Mapping[str, int] = field(default_factory=dict)
     refreshed: bool = False
     tagged: bool = False
@@ -105,12 +108,13 @@ class PushReport:
 
 
 def require_clean_tools(repo_root: Path) -> str:
-    """Freeze the exact clean tools commit used by rendered metadata."""
+    """Return the exact tools commit for the rendered metadata. It must be clean."""
 
     dirty = git_output(repo_root, ["status", "--porcelain=v1", "--untracked-files=all"])
     if dirty:
         raise CorpusError(
-            "tools worktree is dirty; commit or remove changes before build/update/refresh"
+            "tools worktree is dirty. Commit or remove the changes before you run "
+            "build, update or refresh."
         )
     return git_output(repo_root, ["rev-parse", "HEAD"])
 
@@ -121,7 +125,7 @@ def merge_named_events(
     until: datetime | None = None,
     meta_sink: dict[str, dict[str, str | bytes]] | None = None,
 ) -> Iterator[tuple[str, Event]]:
-    """K-way merge source streams while retaining each stream's hard ordering."""
+    """Merge the source streams (a k-way merge). Keep the fixed order in each stream."""
 
     heap: list[
         tuple[tuple[int, datetime, str, str], str, int, Event, Iterator[Event]]
@@ -237,12 +241,12 @@ def _tag_snapshot(
     *,
     replace: bool = False,
 ) -> None:
-    """Tag the snapshot, replacing a stale one only for a rebuild.
+    """Tag the snapshot. Replace a stale tag only for a rebuild.
 
-    SPEC.md 4.2: `build` replaces `main` by definition, so a snapshot tag left
-    naming a commit that is no longer in the history is stale and the build
-    re-points it. `update` only ever appends, so a tag it would move names a
-    commit that is still there and moving it would break a citation.
+    SPEC.md 4.2: `build` replaces `main` by definition. So a snapshot tag can
+    name a commit that is no longer in the history. That tag is stale, and the
+    build points it at the new commit. `update` only appends. So a tag that it
+    moves names a commit that is still there, and the move breaks a citation.
     """
 
     existing = run_git(
@@ -286,7 +290,7 @@ def _install_main(config: Config, scratch: Path, final_head: str) -> None:
 
 
 def _materialize_maildir_modes(corpus: Path) -> None:
-    """Apply the working-tree-only Maildir mode that git trees cannot retain."""
+    """Set the Maildir file mode in the working tree. Git trees cannot keep it."""
 
     root = corpus / "mail"
     if not root.exists():
@@ -303,11 +307,11 @@ BACKENDS = ("fast-import", "session", "plumbing")
 def _commit_all(
     scratch: Path, events: Iterable[Event], backend: str
 ) -> tuple[int, datetime]:
-    """Commit the whole event stream through the chosen backend.
+    """Commit the whole event stream through the selected backend.
 
-    Every backend must produce the same commits; the choice is only how much
-    work it takes to get there. Keeping all three callable is what makes that
-    claim testable on the real corpus rather than on fixtures alone.
+    Every backend must make the same commits. The backends differ only in how
+    much work they do. All three stay callable, so that a test can prove this
+    claim on the real corpus, and not only on fixtures.
     """
 
     count = 0
@@ -341,17 +345,19 @@ def build_corpus(
     until: datetime | None = None,
     backend: str = "fast-import",
 ) -> BuildReport:
-    """Build a new orphan main history, installing it only after full success."""
+    """Build a new orphan main history. Install it only if every step succeeds."""
 
     tools_commit = require_clean_tools(config.repo_root)
     status, _created = init_corpus(config)
     if status.branch != "main":
-        raise CorpusError("build requires the corpus repository on main")
+        raise CorpusError("build needs the corpus repository on main")
     dirty = git_output(
         config.corpus, ["status", "--porcelain=v1", "--untracked-files=all"]
     )
     if dirty:
-        raise CorpusError("corpus working tree is dirty; refusing transactional build")
+        raise CorpusError(
+            "corpus working tree is dirty: refusing the transactional build"
+        )
 
     temporary_root = config.tmp
     temporary_root.mkdir(parents=True, exist_ok=True)
@@ -370,8 +376,8 @@ def build_corpus(
             backend,
         )
         snapshot = _snapshot_name(last_time)
-        # From the history, as every refresh does, so that build, update and
-        # refresh can only render the same table for the same corpus (#63).
+        # Read the table from the history, as every refresh does. Then build,
+        # update and refresh always render the same table for one corpus (#63).
         coverage = coverage_table(scratch, corpus_tallies(scratch))
         refresh_id = "refresh@" + snapshot.removeprefix("snapshot/")
         commit_instruction_refresh(
@@ -407,17 +413,16 @@ class EventAudit:
 def audit_events(
     sources: Mapping[str, EventFactory], until: datetime | None = None
 ) -> EventAudit:
-    """Validate every event the sources would commit, without committing any.
+    """Make sure that each event from the sources is valid, and commit none.
 
-    A build stops at its first invalid event, so a corpus-wide problem costs
-    one full build per instance to find. This is what `build` should be asked
-    to do first.
+    A build stops at its first invalid event. So each instance of a problem
+    across the corpus costs one full build to find. Run this before `build`.
 
-    Each source is walked on its own rather than through the merge, because an
-    event that is invalid on construction raises out of its projector and ends
-    that stream: merged, one such event would hide every other source's
-    problems behind it. Walking separately also costs nothing, since validity
-    is a property of an event and not of its place in the order.
+    The function walks each source by itself, not through the merge. An event
+    that is invalid at construction raises an error out of its projector, and
+    that ends its stream. In a merge, one such event hides the problems of all
+    other sources behind it. A separate walk also costs nothing, because
+    validity is a property of an event, not of its place in the order.
     """
 
     invalid: list[tuple[str, str, str]] = []
@@ -431,8 +436,8 @@ def audit_events(
             except StopIteration:
                 break
             except EventError as exc:
-                # The projector could not build the event at all, which ends
-                # this stream; report where it stopped instead of an id.
+                # The projector was not able to make the event, and that ends
+                # this stream. Report where it stopped, because there is no id.
                 invalid.append((name, f"<after {produced} events>", str(exc)))
                 break
             produced += 1
@@ -447,13 +452,13 @@ def audit_events(
 
 
 def _lf_lines(text: str) -> list[str]:
-    """Split on LF only, which is what the corpus is delimited by.
+    """Split on LF only, because LF is the line delimiter of the corpus.
 
-    `str.splitlines` also breaks on U+0085, U+2028 and U+2029. Those are
-    ordinary characters inside archived text — a 2007 #lojban line contains
-    U+0085 — so splitting on them turns one stored line into several, shifts
-    every line number after it, and makes a file the projector wrote look
-    malformed to the reader. SPEC.md 3.1.2 fixes the delimiter as LF.
+    `str.splitlines` also splits on U+0085, U+2028 and U+2029. Those are
+    ordinary characters in archived text. For example, a 2007 #lojban line
+    contains U+0085. A split on them makes one stored line into several lines,
+    and moves every line number after it. Then a file that the projector wrote
+    looks malformed to the reader. SPEC.md 3.1.2 sets LF as the delimiter.
     """
 
     text = text.removesuffix("\n")
@@ -735,8 +740,9 @@ def _verify_mail(corpus: Path) -> int:
     return mail_messages
 
 
-# How many events an update commits before it moves HEAD. Small enough that a
-# kill costs seconds of work, large enough that the ref update is noise.
+# The number of events that an update commits before it moves HEAD. It is small,
+# so a kill loses only seconds of work. It is large enough that the cost of the
+# ref update is too small to notice.
 UPDATE_FLUSH_EVENTS = 256
 
 
@@ -744,13 +750,13 @@ def update_corpus(
     config: Config,
     sources: Mapping[str, EventFactory],
 ) -> BuildReport:
-    """Append source IDs not already present, then refresh and snapshot.
+    """Append the source IDs that are not already present. Then refresh and snapshot.
 
-    Always returns a report, including for a run that changes nothing: an
-    update that says only "no new source events" leaves the reader to infer
-    what happened to the instruction files and the tag, and inferring success
-    from a short message is how a refresh that could not have happened was
-    nearly accepted as one.
+    This function always returns a report, also for a run that changes nothing.
+    If an update says only "no new source events", the reader must guess what
+    happened to the instruction files and the tag. One time, a reader guessed
+    success from a short message. So a refresh that was not possible was almost
+    accepted as a real refresh.
     """
 
     tools_commit = _open_for_append(config, "update")
@@ -759,11 +765,11 @@ def update_corpus(
     by_source: Counter[str] = Counter()
     last_time: datetime | None = None
     source_meta: dict[str, dict[str, str | bytes]] = {}
-    # One session for the whole append. Committing each event through
-    # `commit_event` proved the worktree clean and rebuilt the index from HEAD
-    # first, so every appended day cost a scan of the entire corpus: appending
-    # 3,300 IRC days to a 286,212-file corpus ran at 7 seconds a commit, six
-    # hours for work the event itself does in milliseconds.
+    # Use one session for the whole append. Before, each event went through
+    # `commit_event`, which proved that the worktree was clean and rebuilt the
+    # index from HEAD. So each appended day cost a scan of the whole corpus. An
+    # append of 3,300 IRC days to a corpus of 286,212 files ran at 7 seconds a
+    # commit. That was six hours for work that the events do in milliseconds.
     with BuildCommitSession(config.corpus) as live:
         for source_name, event in merge_named_events(sources, meta_sink=source_meta):
             if (event.source, event.source_id) in known:
@@ -774,35 +780,36 @@ def update_corpus(
             by_source[source_name] += 1
             last_time = event.source_time
             if event_count % UPDATE_FLUSH_EVENTS == 0:
-                # A session that moved HEAD only at the end would lose the
-                # whole append to a kill. Flushing keeps an interrupted update
-                # resumable, which is how a six-hour run was stopped without
-                # losing the days it had already written.
+                # If a session moves HEAD only at the end, a kill loses the
+                # whole append. The flush lets an interrupted update resume. So
+                # someone stopped a six-hour run, and it kept the days that it
+                # already wrote.
                 live.flush()
     refresh_only = last_time is None
     if refresh_only:
-        # No source has a new event, and until now the function returned here.
-        # That made a template change unable to reach main at all on a quiet
-        # day: the instruction files are rendered only by a refresh commit, and
-        # a refresh commit only happened as a side effect of appending events.
-        # A refresh is not a new snapshot of the record, it is the same
-        # snapshot re-rendered, so it reuses the snapshot name and mints no tag.
+        # No source has a new event. Before this change, the function returned
+        # here. So on a quiet day, a template change was not able to reach main
+        # at all. Only a refresh commit renders the instruction files, and a
+        # refresh commit came only as a side effect of new events. A refresh is
+        # not a new snapshot of the record. It is the same snapshot, rendered
+        # again. So it uses the same snapshot name and mints no tag.
         last_time = _tip_time(config.corpus)
         snapshot = _current_snapshot(config.corpus, last_time)
     else:
         snapshot = _snapshot_name(last_time)
     assert last_time is not None
-    # The table describes the corpus, not the stream: read from the history, it
-    # counts every event, including those of sources this update did not
-    # project, and it is the table a later `refresh` renders (#63).
+    # The table describes the corpus, not the stream. The code reads it from the
+    # history, so it counts every event. This includes the events of sources
+    # that this update did not project. It is also the table that a later
+    # `refresh` renders (#63).
     coverage = coverage_table(config.corpus, corpus_tallies(config.corpus))
     refresh_changes = _archive_manifest_changes(config.archive)
-    # Every source's metadata, not only that of sources with new events. A
-    # source that appended nothing still has `_meta` files rendered by the
-    # current projector, and folding only the noisy sources meant a quiet one
-    # kept whatever shape it had when it last gained an event — #52's defect
-    # one level down. Git records a change only where the content differs, so
-    # the cost is a larger diff exactly when there is something to record.
+    # Add the metadata of every source, not only of the sources with new events.
+    # A source that appended nothing still has `_meta` files that the current
+    # projector renders. When the code added only the active sources, a quiet
+    # source kept the shape from its last event. That was the defect of #52, one
+    # level down. Git records a change only where the content differs. So the
+    # diff is larger only when there is something to record.
     for source_name in sorted(source_meta):
         for path, value in source_meta.get(source_name, {}).items():
             previous = refresh_changes.get(path)
@@ -848,15 +855,17 @@ def update_corpus(
 
 
 def refresh_corpus(config: Config) -> BuildReport:
-    """Render the instruction files again at the tip, from the corpus alone.
+    """Render the instruction files again at the tip, from the corpus only.
 
-    A template change needs no projection: the corpus already holds every
-    event, and the coverage table's tallies can be read back from its history
-    (`corpus_tallies`). So this needs neither the archive nor the memory a
-    projection costs, and it leaves `_meta/archive/` and every source's `_meta`
-    files alone; `update` is still the command that refreshes those. What it
-    commits is what `update` commits when it finds no new event and no changed
-    metadata: the same snapshot re-rendered, with no new tag (SPEC.md 4.2).
+    A template change needs no projection. The corpus already holds every
+    event, and `corpus_tallies` reads the tallies of the coverage table back
+    from its history. So this function needs neither the archive nor the memory
+    of a projection. It does not change `_meta/archive/` or the `_meta` files of
+    any source. `update` is still the command that refreshes those.
+
+    This function commits the same thing that `update` commits when it finds no
+    new event and no changed metadata. That is the same snapshot, rendered
+    again, with no new tag (SPEC.md 4.2).
     """
 
     tools_commit = _open_for_append(config, "refresh")
@@ -872,7 +881,10 @@ def refresh_corpus(config: Config) -> BuildReport:
 
 
 def _open_for_append(config: Config, command: str) -> str:
-    """Prove the tools checkout and the corpus fit to append to; return the tools commit."""
+    """Make sure that the tools checkout and the corpus are ready for an append.
+
+    Return the tools commit.
+    """
 
     tools_commit = require_clean_tools(config.repo_root)
     status, _created = init_corpus(config)
@@ -884,12 +896,12 @@ def _open_for_append(config: Config, command: str) -> str:
     )
     if dirty:
         raise CorpusError(
-            f"corpus working tree is dirty; refusing {command}. An update that "
-            "was killed between flushes leaves the files of up to "
-            f"{UPDATE_FLUSH_EVENTS} events that were never committed: if that "
-            "is what this is, `git -C <corpus> reset --hard HEAD` discards "
-            "them and the events are appended again on the next run. Check "
-            "first that none of it is contributed work."
+            f"corpus working tree is dirty: refusing {command}. If someone kills "
+            "an update between flushes, it leaves the files of up to "
+            f"{UPDATE_FLUSH_EVENTS} events that it did not commit. If that is the "
+            "cause, `git -C <corpus> reset --hard HEAD` discards them, and the "
+            "next run appends the events again. Before you do this, make sure "
+            "that none of the changes is contributed work."
         )
     return tools_commit
 
@@ -903,10 +915,10 @@ def _refresh_in_place(
     coverage: str,
     extra_changes: Mapping[str, str | bytes],
 ) -> BuildReport:
-    """Commit a refresh with no new events, or nothing if nothing would change.
+    """Commit a refresh with no new events. If no file changes, commit nothing.
 
-    A refresh is not a new snapshot of the record, it is the same snapshot
-    re-rendered, so it reuses the snapshot name and mints no tag.
+    A refresh is not a new snapshot of the record. It is the same snapshot,
+    rendered again. So it uses the same snapshot name and mints no tag.
     """
 
     context = RenderContext(
@@ -915,17 +927,17 @@ def _refresh_in_place(
         layout_summary=layout_summary(config.corpus),
         coverage_tables=coverage,
     )
-    # Nothing forces a refresh-only commit to have anything to say. An empty
-    # one would still be a legitimate commit (SPEC.md 3.3 rule 4b), but it
-    # would claim a refresh happened when nothing was re-rendered.
+    # A refresh-only commit can have no changes. An empty commit is still a
+    # correct commit (SPEC.md 3.2 rule (4b)). But it claims a refresh when the
+    # render changed nothing.
     pending = dict(render_main(config.repo_root, context))
     pending.update(extra_changes)
     refreshed = _differs_from_worktree(config.corpus, pending)
     if refreshed:
-        # The parent names this refresh uniquely: every refresh has a distinct
-        # one, and "the refresh applied on top of <commit>" is what a citation
-        # of it means. The snapshot-derived id belongs to the update that
-        # minted the snapshot and cannot be reused here.
+        # The parent gives this refresh a unique name, because each refresh has
+        # a different parent. A citation of the refresh means "the refresh on
+        # top of <commit>". The id from the snapshot name belongs to the update
+        # that minted the snapshot, so this code cannot use it again.
         commit_instruction_refresh(
             config.repo_root,
             config.corpus,
@@ -947,22 +959,22 @@ def _refresh_in_place(
 
 
 def _tip_time(corpus: Path) -> datetime:
-    """The corpus tip's own committer time, which is its newest event's time.
+    """Return the committer time of the corpus tip, the time of its newest event.
 
-    A refresh has no source time of its own, and SPEC.md 2.4 forbids reading
-    the clock into committed content. The tip's time is a pure function of the
-    corpus, so two refreshes of the same corpus produce the same date.
+    A refresh has no source time of its own. SPEC.md 2.4 forbids clock time in
+    committed content. The time of the tip is a pure function of the corpus. So
+    two refreshes of the same corpus give the same date.
     """
 
     return datetime.fromisoformat(git_output(corpus, ["log", "-1", "--format=%cI"]))
 
 
 def _current_snapshot(corpus: Path, tip_time: datetime) -> str:
-    """The snapshot this corpus is already published as.
+    """Return the snapshot name under which this corpus is already published.
 
-    The tag is the authority; the name derived from the tip's time is the
-    fallback for a corpus that has none, and agrees with the tag whenever the
-    tip is the commit the tag was minted for.
+    The tag decides. If the corpus has no tag, the fallback is a name made from
+    the time of the tip. That name agrees with the tag when the tip is the
+    commit that got the tag.
     """
 
     described = run_git(
@@ -975,10 +987,11 @@ def _current_snapshot(corpus: Path, tip_time: datetime) -> str:
 
 
 def _differs_from_worktree(corpus: Path, changes: Mapping[str, str | bytes]) -> bool:
-    """Whether any rendered file would actually change.
+    """Return True if any rendered file changes.
 
-    The corpus worktree is proven clean before an update runs, so it is HEAD's
-    content and can be read directly instead of through `git show`.
+    Before an update runs, the code proves that the corpus worktree is clean. So
+    the worktree has the content of HEAD, and the code can read it directly, not
+    through `git show`.
     """
 
     for path, value in changes.items():
@@ -993,7 +1006,11 @@ def _differs_from_worktree(corpus: Path, changes: Mapping[str, str | bytes]) -> 
 
 
 def verify_corpus(corpus: Path) -> VerifyReport:
-    """Verify commit trailers, source IDs, file limits, CSV paths, and Maildirs."""
+    """Make sure that the corpus is valid.
+
+    The checks cover commit trailers, source IDs, file limits, CSV paths and
+    Maildirs.
+    """
 
     status = corpus_status(corpus)
     if not status.exists or status.head is None:
@@ -1034,18 +1051,18 @@ def verify_corpus(corpus: Path) -> VerifyReport:
     ):
         csv_indexes += 1
         if path.name == "gaps.csv":
-            # A gaps file names what a projector could *not* project, so its
-            # paths are not an index of corpus files: some are absent by
-            # definition (Tiki's NUL-byte page, SPEC.md 3.2.5(d)) and some
-            # exist for another reason (a page kept from its history alone
-            # still has a file). Requiring either would be wrong.
+            # A gaps file names what a projector was *not* able to project. So its
+            # paths are not an index of corpus files. Some are absent by
+            # definition (the Tiki page with a NUL byte, SPEC.md 3.2.5(d)). Some
+            # exist for another reason (a page that only its history keeps still
+            # has a file). So the check must require neither.
             continue
         for row_number, row in enumerate(_read_csv(path), 2):
             referenced = row.get("path") or row.get("file")
             state = row.get("state")
             if state is not None:
-                # SPEC.md 4.4: an index says whether a row still has a file,
-                # and carries a path exactly when it does.
+                # SPEC.md 4.4: an index says if a row still has a file. The row
+                # has a path if and only if it has a file.
                 if state not in {"current", "deleted", "not-projected"}:
                     raise CorpusError(
                         f"unknown index state at {path}:{row_number}: {state!r}"
@@ -1075,9 +1092,9 @@ def push_main_ranges(
     remote: str = "origin",
     commits_per_push: int = 5_000,
 ) -> PushReport:
-    """Fast-forward main in bounded commit ranges, then publish one snapshot tag.
+    """Fast-forward main in commit ranges of limited size. Then push one snapshot tag.
 
-    Runs in the corpus repository, which is where `main` and its tags live
+    This function runs in the corpus repository, which holds `main` and its tags
     (SPEC.md 2.2).
     """
 

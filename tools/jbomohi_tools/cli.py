@@ -231,7 +231,7 @@ def _cll_render(args: argparse.Namespace, config: Config) -> int:
     except StopIteration as exc:
         available = ", ".join(event.source_id.removeprefix("cll=") for event in events)
         raise ValueError(
-            f"unknown CLL edition {args.edition!r}; available: {available}"
+            f"unknown CLL edition {args.edition!r}. Available editions: {available}"
         ) from exc
     bodies = git_output(config.corpus, ["log", "--format=%B"]) if status.head else ""
     known = {
@@ -246,7 +246,7 @@ def _cll_render(args: argparse.Namespace, config: Config) -> int:
         prefix += 1
     if unknown or any(source_id in known for source_id in ordered_ids[prefix:]):
         raise ValueError(
-            "existing CLL render commits are not a chronological edition prefix"
+            "the existing CLL render commits are not the first editions in date order"
         )
     commits = 0
     head = status.head
@@ -264,7 +264,7 @@ def _until(value: str | None) -> datetime | None:
     if value is None:
         return None
     raise ValueError(
-        "--until is not supported until every selected projector accepts a cut-off"
+        "--until will work only when every selected projector accepts a cut-off"
     )
 
 
@@ -287,8 +287,8 @@ def _build(args: argparse.Namespace, config: Config) -> int:
 
 def _update(args: argparse.Namespace, config: Config) -> int:
     report = update_corpus(config, source_factories(config, args.sources or None))
-    # An update that says only "no new source events" leaves the reader to infer
-    # what happened to the instruction files and the tag. Say all three.
+    # If an update says only "no new source events", the reader must guess what
+    # happened to the instruction files and the tag. So the output states all three.
     appended = (
         ", ".join(
             f"{source}={count}" for source, count in report.events_by_source.items()
@@ -302,7 +302,10 @@ def _update(args: argparse.Namespace, config: Config) -> int:
         f"tag={'minted' if report.tagged else 'unchanged'}"
     )
     if not report.events and not report.refreshed:
-        print("update: no change — no new source events, instruction files current")
+        print(
+            "update: no change. There are no new source events, "
+            "and the instruction files are current."
+        )
     if args.push:
         pushed = push_main_ranges(config.corpus, report.snapshot)
         print(f"push: main_updates={pushed.main_updates} snapshot={pushed.snapshot}")
@@ -316,8 +319,8 @@ def _refresh(args: argparse.Namespace, config: Config) -> int:
         f"snapshot={report.snapshot} "
         f"instructions={'refreshed' if report.refreshed else 'already current'}"
     )
-    # Whenever asked, not only after a new commit: a refresh whose push failed
-    # is current locally, and must still be publishable by running it again.
+    # Push each time the user asks, not only after a new commit. If the push of a
+    # refresh fails, the local corpus is current. A second run must still push it.
     if args.push:
         pushed = push_main_ranges(config.corpus, report.snapshot)
         print(f"push: main_updates={pushed.main_updates} snapshot={pushed.snapshot}")
@@ -361,7 +364,7 @@ def parser() -> argparse.ArgumentParser:
     _leaf(corpus_commands, "status", _corpus_status)
 
     archive = commands.add_parser(
-        "archive", help="manage content-addressed raw archives"
+        "archive", help="manage the raw archives, stored by content hash"
     )
     archive_commands = archive.add_subparsers(dest="archive_command", required=True)
     fetch = _leaf(archive_commands, "fetch", _archive_fetch)
@@ -369,8 +372,8 @@ def parser() -> argparse.ArgumentParser:
     fetch.add_argument(
         "--since",
         help=(
-            "UTC ISO timestamp for incremental acquisition; also refreshes cached "
-            "page discovery and revision responses"
+            "UTC ISO timestamp. Fetch only the newer items. This also refreshes "
+            "the cached page lists and revision responses."
         ),
     )
     fetch.add_argument("--list", dest="list_name")
@@ -402,7 +405,10 @@ def parser() -> argparse.ArgumentParser:
         "--backend",
         choices=BACKENDS,
         default="fast-import",
-        help="how the history is written; every backend must produce the same commits",
+        help=(
+            "the code that writes the history. "
+            "Every backend must make the same commits."
+        ),
     )
 
     update = _leaf(commands, "update", _update)
@@ -414,7 +420,7 @@ def parser() -> argparse.ArgumentParser:
     verify.add_argument(
         "--events",
         action="store_true",
-        help="validate every event the sources would commit, and commit none",
+        help="make sure that each event from the sources is valid, and commit none",
     )
     verify.add_argument("--sources", nargs="+")
 
@@ -423,16 +429,16 @@ def parser() -> argparse.ArgumentParser:
     render = _leaf(cll_commands, "render", _cll_render)
     render.add_argument("edition")
 
-    who = commands.add_parser("who", help="identity attestation helpers")
+    who = commands.add_parser("who", help="helpers for identity attestations")
     who_commands = who.add_subparsers(dest="who_command", required=True)
     _leaf(who_commands, "propose", _not_implemented("who propose"))
     _leaf(who_commands, "promote", _not_implemented("who promote"))
 
-    notes = commands.add_parser("notes", help="research note helpers")
+    notes = commands.add_parser("notes", help="helpers for research notes")
     notes_commands = notes.add_subparsers(dest="notes_command", required=True)
     _leaf(notes_commands, "lint", _not_implemented("notes lint"))
 
-    cite = commands.add_parser("cite", help="stable citation helpers")
+    cite = commands.add_parser("cite", help="helpers for stable citations")
     cite_commands = cite.add_subparsers(dest="cite_command", required=True)
     resolve = _leaf(cite_commands, "resolve", _not_implemented("cite resolve"))
     resolve.add_argument("citation")

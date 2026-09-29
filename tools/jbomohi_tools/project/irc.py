@@ -18,7 +18,10 @@ from ..git import Event, Identity
 
 
 class IrcParseError(ValueError):
-    """An IRC archive line cannot be normalized without guessing."""
+    """The parser cannot normalize an IRC archive line without a guess.
+
+    To normalize a line is to write it in the one standard line form.
+    """
 
 
 ISO_LINE = re.compile(
@@ -51,10 +54,11 @@ OUTPUT_LINE = re.compile(
 NORMAL_MESSAGE = re.compile(r"^(?:\d{2}:\d{2}:\d{2}|--:--:--) <([^>]+)> ")
 NORMAL_ACTION = re.compile(r"^(?:\d{2}:\d{2}:\d{2}|--:--:--) \* (\S+) ")
 DATED_FILENAME = re.compile(r"(?P<date>\d{4}_\d{2}_\d{2})(?:-\d{2}_\d{2})?\.txt$")
-# SPEC.md 3.4: a wholly undated file "becomes the day its file name names".
-# #jbosnu holds one hand-saved log that names its day the other way round,
-# `jbosnu-robins_history_04_Apr_2004.txt`. The day is named; only the spelling
-# differs, so reading it is following the rule rather than widening it.
+# SPEC.md 3.4: a file with no dates at all "becomes the day its file name names".
+# #jbosnu holds one log that a person saved by hand. Its name gives the day in
+# the other order, `jbosnu-robins_history_04_Apr_2004.txt`. The name gives the
+# day, and only the spelling is different. So when the code reads this name, it
+# follows the rule. It does not make the rule wider.
 NAMED_MONTH_FILENAME = re.compile(
     r"(?P<day>\d{1,2})_(?P<month>[A-Za-z]{3})_(?P<year>\d{4})\.txt$"
 )
@@ -94,21 +98,24 @@ DAY_COLUMNS = (
 
 @dataclass(frozen=True, slots=True)
 class ChannelArchive:
-    """What the archive proves about one channel's fetch, beyond the logs.
+    """What the archive proves about the fetch of one channel, apart from the logs.
 
-    The month index pages are archived alongside the logs, and each records how
-    many files the server listed in that directory. Comparing that with what
-    was taken turns "the tail is missing" from an assertion into something the
-    archive can show, without trusting anything outside it.
+    The archive keeps the month index pages next to the logs. An index page is
+    the list of files that the server shows for one directory. Each page
+    records how many files the server listed in that directory. The code
+    compares that number with the number of files that the fetch took. Then
+    "the end of the log is missing" is not only a claim. The archive can show
+    it, and the code trusts nothing outside the archive.
 
-    That comparison is only as complete as the walk that produced it. An
-    interrupted fetch archives indexes for the directories it reached and none
-    for the rest, so `listed` counts what those directories held and the
-    difference from `held` looks small however much is absent — the count of
-    what exists is itself partial, and the arithmetic is self-consistent and
-    wrong. The channel index records how many directories the server lists, so
-    holding that against how many were walked says whether the comparison can
-    be read as a gap at all.
+    That comparison is only as complete as the walk that made it. The walk is
+    the visit of the fetch to each directory. If a fetch stops early, it
+    archives the indexes of the directories that it reached and none for the
+    others. So `listed` counts only the files of those directories. The
+    difference from `held` then looks small, however much is absent. The count
+    of what exists is itself partial, so the arithmetic agrees with itself but
+    is wrong. The channel index records how many directories the server lists.
+    The code compares that with the number of directories that the fetch
+    walked. The result tells whether the file comparison can show a gap at all.
     """
 
     listed: int = 0
@@ -123,10 +130,11 @@ class ChannelArchive:
 
     @property
     def walk_complete(self) -> bool | None:
-        """Whether every directory the channel index lists was walked.
+        """Whether the fetch walked every directory that the channel index lists.
 
-        `None` when the channel index itself is not archived, which is not the
-        same as a complete walk and must not be reported as one.
+        If the archive does not hold the channel index, the value is `None`.
+        That is not the same as a complete walk, and the code must not report
+        it as one.
         """
 
         if self.directories_listed is None:
@@ -145,7 +153,10 @@ class SourceObject:
 
 @dataclass(frozen=True, slots=True)
 class IrcAmendment:
-    """Update-mode identity for a changed archived day manifestation."""
+    """The update-mode identity of an archived day file that changed.
+
+    A manifestation is one archived version of a source file.
+    """
 
     sha256: str
     supersedes_sha256: str | None
@@ -275,9 +286,10 @@ def _normalize_body(
 
 
 def _decode(source: SourceObject) -> list[str]:
-    # The logger archive mixes valid UTF-8 with isolated ISO-8859-1 bytes.
-    # Preserve valid UTF-8 sequences and map each otherwise-invalid byte to
-    # its same-valued Unicode code point; this is byte-total and deterministic.
+    # The logger archive mixes valid UTF-8 with single ISO-8859-1 bytes.
+    # Keep the valid UTF-8 sequences. Map each other byte, which is not valid
+    # UTF-8, to the Unicode code point with the same value. This decodes every
+    # byte, and it always gives the same result.
     decoded = source.payload.decode("utf-8", errors="surrogateescape")
     text = "".join(
         chr(ord(char) - 0xDC00) if "\udc80" <= char <= "\udcff" else char
@@ -528,7 +540,7 @@ def _parse_bracket(source: SourceObject, raw_lines: Sequence[str]) -> list[IrcUn
 
 
 def _day_from_filename(name: str) -> date | None:
-    """The day a file name names, in either spelling the logs use."""
+    """The day that a file name gives, in either of the two spellings of the logs."""
 
     match = DATED_FILENAME.search(name)
     if match:
@@ -570,7 +582,7 @@ def _parse_undated(source: SourceObject, raw_lines: Sequence[str]) -> list[IrcUn
 
 
 def parse_source(source: SourceObject) -> list[IrcUnit]:
-    """Normalize one source object without network or clock access."""
+    """Normalize one source object. This does not use the network or the clock."""
 
     if not re.fullmatch(r"[a-z][a-z0-9_-]*", source.channel):
         raise IrcParseError(f"invalid IRC channel slug: {source.channel!r}")
@@ -594,21 +606,25 @@ def parse_source(source: SourceObject) -> list[IrcUnit]:
 
 
 def load_channel_archives(archive: Path) -> dict[str, ChannelArchive]:
-    """What the archived month indexes prove about each channel's fetch.
+    """What the archived month indexes prove about the fetch of each channel.
 
-    Every directory index the fetch walked is archived beside the logs, with
-    the number of files the server listed there. Held against what was taken,
-    that is the difference between "the record ends here" and "our copy of it
-    does", and it needs nothing outside the archive to establish.
+    The archive keeps each directory index that the fetch walked next to the
+    logs. Each index gives the number of files that the server listed there.
+    The code compares that number with the number of files that the fetch took.
+    The result shows the difference between "the record ends here" and "our
+    copy of the record ends here". The code needs nothing outside the archive
+    to find this difference.
     """
 
     root = archive / "manifests" / "irc"
     if not root.exists():
         return {}
-    # One URL can have several manifests: a directory index changes whenever a
-    # day is added to that month, and every version is kept. Counting them all
-    # would count that month's files once per fetch, so each URL contributes
-    # only its newest manifest, as load_archive selects log objects.
+    # One URL can have several manifests. A manifest is the archive record of
+    # one fetched file. A directory index changes each time the server adds a
+    # day to that month, and the archive keeps every version. If the code
+    # counts them all, it counts the files of that month once for each fetch.
+    # So the code uses only the newest manifest of each URL. load_archive
+    # selects log objects in the same way.
     newest: dict[str, ArchiveManifest] = {}
     for path in sorted(root.rglob("*.toml")):
         manifest = ArchiveManifest.load(path)
@@ -656,7 +672,10 @@ def load_channel_archives(archive: Path) -> dict[str, ChannelArchive]:
 
 
 def load_archive(archive: Path) -> list[SourceObject]:
-    """Load the newest immutable manifestation of each fetched IRC URL."""
+    """Load the newest archived version of each fetched IRC URL.
+
+    The archive never changes a version after it writes it.
+    """
 
     root = archive / "manifests" / "irc"
     if not root.exists():
@@ -704,7 +723,7 @@ def load_archive(archive: Path) -> list[SourceObject]:
 
 
 def validate_rendered(unit: IrcUnit) -> None:
-    """Check that a unit obeys the normalized line grammar."""
+    """Make sure that each line of a unit has the normalized line form."""
 
     expected_prefix = f"# irc #{unit.channel} {unit.date_key} "
     if not unit.header.startswith(expected_prefix):
@@ -727,19 +746,21 @@ def _coverage_toml(
     missing: Sequence[date],
     archive: ChannelArchive,
 ) -> str:
-    """What this channel's projection covers, and what it demonstrably lacks.
+    """What the projection of this channel covers, and what it can show is missing.
 
-    SPEC.md 3.4 gives IRC a day index and a gaps file, which between them say
-    what was projected and what was recorded as absent. Neither says how far
-    the archive itself reaches, so a reader could not tell a channel that ends
-    in 2022 because the conversation stopped from one that ends in 2022 because
-    a fetch did.
+    The projection is the set of files that the projector writes for the
+    channel. SPEC.md 3.4 gives IRC a day index and a gaps file. Together they
+    tell what the projector wrote and what it recorded as absent. Neither tells
+    how far the archive itself goes. So a reader cannot tell apart two
+    channels that end in 2022: one because the conversation stopped, and one
+    because a fetch stopped.
     """
 
-    # A range block's key is `<from>..<to>`, so a field called first_day must
-    # read the endpoints out of it rather than store the key. Naming a range as
-    # though it were a day tells the reader something false and breaks anything
-    # that parses this file as dates.
+    # The key of a range block is `<from>..<to>`. A range block is one file for
+    # many days. So a field called first_day must read the end dates out of the
+    # key, and must not store the key. If the code names a range as a day, it
+    # tells the reader something false. It also breaks any tool that parses
+    # this file as dates.
     days: set[str] = set()
     for unit in units:
         if unit.date_key == "unknown":
@@ -751,9 +772,9 @@ def _coverage_toml(
         "# Written by jbomohi build; do not edit.",
         "",
         f"channel = {_toml_string(channel)}",
-        # One row per projected file, which is what days.csv holds. A range
-        # block is one file covering many days, so calling this "days" was the
-        # other half of the same inaccuracy.
+        # This is one row for each projected file, which is what days.csv
+        # holds. A range block is one file for many days. So the old name
+        # "days" was the other half of the same error.
         f"files = {len(units)}",
     ]
     ranges = sum(1 for unit in units if ".." in unit.date_key)
@@ -798,12 +819,13 @@ def _coverage_toml(
 
 
 def _archive_note(archive: ChannelArchive, complete: bool | None) -> str:
-    """What the file counts above may and may not be read as.
+    """What the file counts above can tell, and what they cannot tell.
 
-    When the walk did not finish, the difference between listed and archived is
-    a lower bound and nothing more: the directories never visited contribute to
-    neither side. Reporting it as the gap is how a channel thirteen years and
-    1,775 files short of the record read as ten files short.
+    If the walk did not finish, the difference between listed and archived is
+    only a lower bound. The directories that the fetch did not visit add to
+    neither number. One channel was thirteen years and 1,775 files short of the
+    record. Because the code reported this difference as the gap, the channel
+    looked only ten files short.
     """
 
     if complete is None:
@@ -1055,21 +1077,22 @@ def project(
     archives: Mapping[str, ChannelArchive] | None = None,
     channels: Iterable[str] | None = None,
 ) -> Iterator[Event]:
-    """Project source objects to chronologically ordered IRC events.
+    """Project source objects to IRC events in time order.
 
-    Initial builds omit ``amendments`` and receive stable date source IDs.
-    Update orchestration supplies changed output paths and archive digests;
-    the projector remains pure and emits the spec-defined unique edit IDs.
+    A first build does not give ``amendments``, and it gets stable source IDs
+    that are dates. An update gives the output paths that changed and their
+    archive digests. The projector stays pure, which means that it uses only
+    its input. It writes the unique edit IDs that the spec defines.
     """
 
     parsed: list[IrcUnit] = []
     for source in sources:
         parsed.extend(parse_source(source))
-    # A channel nobody fetched has no source objects, so the projector would
-    # never mention it and a reader could not tell it apart from a channel that
-    # does not exist. SPEC.md 3.4's gaps files say what is absent; a whole
-    # absent channel deserves the same treatment, and only the caller knows
-    # which channels were configured.
+    # If nobody fetched a channel, it has no source objects. Then the projector
+    # does not name it, and a reader cannot tell it apart from a channel
+    # that does not exist. The gaps files of SPEC.md 3.4 tell what is absent.
+    # A channel that is absent as a whole gets the same treatment. Only the
+    # caller knows which channels are in the configuration.
     configured = sorted(set(channels or ()) - {unit.channel for unit in parsed})
     grouped: dict[str, list[IrcUnit]] = defaultdict(list)
     for unit in parsed:
@@ -1090,14 +1113,15 @@ def project(
     for channel_rows in rows.values():
         channel_rows.sort(key=lambda row: str(row["date"]))
 
-    # Every channel's index and coverage ride the stream's final event, not the
-    # final event of their own channel. A file that describes a whole channel
-    # must not depend on whether one of that channel's days happened to be new:
-    # #lojban was complete, so its last event was already in the corpus and was
-    # skipped, and its coverage.toml kept a shape two releases old while the
-    # channels that gained days got the current one. SPEC.md 4.2 already treats
-    # a source's _meta as riding its stream's final event; this makes IRC do
-    # that rather than fan it across channels.
+    # The index and coverage files of every channel go with the last event of
+    # the stream, not with the last event of their own channel. A file that
+    # describes a whole channel must not depend on whether one day of that
+    # channel is new. This fault happened: #lojban was complete, so its last
+    # event was already in the corpus, and the build skipped it. Its
+    # coverage.toml kept a form that was two releases old. The channels that
+    # got new days got the current form. SPEC.md 4.2 already puts the _meta
+    # files of a source on the last event of its stream. This code makes IRC
+    # do the same, and it does not spread the files across channels.
     stream_meta: dict[str, str | bytes] = {}
     for channel in sorted({*channel_units, *configured}):
         held = channel_units.get(channel, [])

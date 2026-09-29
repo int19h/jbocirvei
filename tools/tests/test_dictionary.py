@@ -853,11 +853,11 @@ def test_changes_feed_rejects_an_injected_off_origin_response(tmp_path: Path) ->
 
 
 def test_a_truncated_change_message_never_ends_the_subject_in_a_space() -> None:
-    """Cutting the message at 36 characters can land just after a word.
+    """A cut of the message at 36 characters can fall just after a word.
 
-    `definition=88416 version=0` did exactly that on the real dump: the message
-    'Add periodic-table gismu assignment algorithm' truncates to '...assignment '
-    and a commit subject may not end in a space.
+    That occurred for `definition=88416 version=0` on the real dump. The message
+    'Add periodic-table gismu assignment algorithm' becomes '...assignment '
+    after the cut. A commit subject must not end in a space.
     """
 
     from jbomohi_tools.project.dictionary import _summary
@@ -870,5 +870,5 @@ def test_a_truncated_change_message_never_ends_the_subject_in_a_space() -> None:
     assert summary == summary.strip()
     assert "  " not in summary
 
-    # A message that needs no truncation is untouched.
+    # The code does not change a message that is short enough.
     assert _summary("valsi", "en#1 v1", "tweak").endswith("tweak")

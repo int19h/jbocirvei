@@ -374,12 +374,13 @@ def test_phantom_reference_is_thread_root_and_key_input() -> None:
 
 
 def test_a_date_at_or_before_the_epoch_is_not_a_date() -> None:
-    """A header no message on these lists could carry is corrupt, not history.
+    """No message on these lists can carry this header, so it is corrupt data.
 
-    SPEC.md 2.6 reserves `pre-epoch` for documents that genuinely predate 1970
-    and 3.3 says a mail date is never the Unix epoch, so such a header is
-    discarded and the next evidence is used, exactly as for one that does not
-    parse. Without this the whole build fails closed on one broken header.
+    SPEC.md 2.6 keeps `pre-epoch` for documents that are really older than
+    1970. SPEC.md 3.3 says that a mail date is never the Unix epoch. So the
+    code discards such a header and uses the next evidence, the same as for a
+    header that does not parse. Without this rule, one broken header stops the
+    whole build.
     """
 
     epoch_dated = manifestation(
@@ -397,7 +398,7 @@ def test_a_date_at_or_before_the_epoch_is_not_a_date() -> None:
     )
     assert parse_mail(before).time_confidence == "window"
 
-    # A Received: header is the next evidence, and is refused on the same terms.
+    # A Received: header is the next evidence. The same rule refuses it.
     received = manifestation(
         message(
             "received@example.org",
@@ -410,13 +411,13 @@ def test_a_date_at_or_before_the_epoch_is_not_a_date() -> None:
     assert recovered.time_confidence == "tz-unknown"
     assert recovered.timestamp == datetime(2000, 1, 1, 12, tzinfo=UTC)
 
-    # Every discarded value is kept verbatim so the record can show it.
+    # The code keeps each discarded value exactly, so the record can show it.
     assert parsed.date_source == "archive-order"
     assert parsed.unusable_dates == ("Thu, 1 Jan 1970 00:00:00 +0000",)
     assert recovered.date_source == "received"
     assert recovered.unusable_dates == ("Thu, 1 Jan 1970 00:00:00 +0000",)
 
-    # A real date is still exact, and the first second after the epoch counts.
+    # A real date is still exact. The first second after the epoch counts.
     just_after = manifestation(
         message("after@example.org", date="Thu, 1 Jan 1970 00:00:01 +0000"),
         order=3,
@@ -428,7 +429,7 @@ def test_a_date_at_or_before_the_epoch_is_not_a_date() -> None:
 
 
 def test_an_unusable_date_is_named_in_the_record() -> None:
-    """SPEC.md 3.3: the discarded value is written down, not just dropped."""
+    """SPEC.md 3.3: the code records the discarded value. It does not only drop it."""
 
     events = list(
         project(

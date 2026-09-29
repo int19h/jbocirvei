@@ -1,10 +1,10 @@
-"""Checks on the test suite itself, for failures that look like successes.
+"""Checks of the test suite itself. They find failures that look like successes.
 
-Two have already happened here. A skip guard defaulted to the real archive, so
-it never skipped where it mattered and the module it guarded was never proved
-to skip at all. A test function was defined twice in one module, so Python kept
-the second and the first never ran, while `pytest -q` reported the file green.
-Both were invisible in the place anyone looks: the pass count.
+Two such failures happened here before. A skip guard used the real archive as
+its default. So it never skipped where it mattered, and no test proved that the
+guarded module skipped at all. One module defined a test function two times. So
+Python kept the second, and the first never ran, but `pytest -q` reported the
+file as passed. Neither failure showed in the place people look: the pass count.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ def module_paths() -> list[Path]:
 
 
 def test_no_test_module_defines_a_name_twice() -> None:
-    """A shadowed definition is a test that silently stops running."""
+    """A shadowed definition is a test that stops running, and nothing reports it."""
 
     duplicates: list[str] = []
     for path in module_paths():
@@ -40,7 +40,7 @@ def test_no_test_module_defines_a_name_twice() -> None:
 
 
 def test_every_module_has_at_least_one_test() -> None:
-    """A module whose tests were all renamed away still collects as green."""
+    """If all tests of a module lose the `test_` prefix, the module still passes."""
 
     empty = [
         path.name

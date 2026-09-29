@@ -1,11 +1,11 @@
-"""Prove the export and the API crawl agree, against the real archive.
+"""Prove that the export and the API crawl agree, with the real archive.
 
-SPEC.md 3.2 defines the two wiki inputs as equal over their intersection:
-every `revid` and `logid` present in both must yield byte-identical events.
-That is a property of the actual data, not of a fixture, so these tests are run
-deliberately, never as part of a plain `pytest`: they read the whole wiki
-export, which costs minutes and several gigabytes. They skip unless
-`JBOMOHI_ARCHIVE` names the archive explicitly.
+SPEC.md 3.2 defines the two wiki inputs as equal where they overlap. Each
+`revid` and `logid` that both hold must give byte-identical events. That is a
+property of the real data, not of a fixture. Thus you run these tests on
+purpose, never as part of a plain `pytest`. They read the whole wiki export,
+which takes minutes and several gigabytes. If `JBOMOHI_ARCHIVE` does not name
+the archive, they skip.
 
 Run them with the archive in place:
 
@@ -75,14 +75,14 @@ EVENT_FIELDS = (
 
 
 def archive_root() -> Path | None:
-    """The archive to prove the claim against, or None when none was asked for.
+    """Return the archive for the proof. If no one asked for one, return None.
 
-    Falling back to the default location made these tests run wherever an
-    archive happened to sit at `~/lojban/archive`, turning a plain `pytest`
-    into a multi-gigabyte job without saying so. Requiring the variable also
-    means the skip is exercised on the machines that have the data, rather than
-    only on CI, where it passes for the trivial reason that there is no archive
-    at all.
+    When the variable was not set, an earlier version used the default
+    location. Then these tests ran on each machine with an archive at
+    `~/lojban/archive`, and a plain `pytest` became a multi-gigabyte job
+    without a warning. Because the variable is required, the skip is also
+    tested on the machines that have the data, not only on CI. On CI the skip
+    passes only because there is no archive at all.
     """
 
     configured = os.environ.get("JBOMOHI_ARCHIVE")
@@ -155,8 +155,8 @@ def test_both_paths_project_the_same_events_over_the_same_range(inputs) -> None:
     api_revisions = {r.revid for f in api_fragments for r in f.revisions}
     api_logids = {event.logid for event in api_logs}
 
-    # Restrict both sides to what both inputs hold, so a difference can only be
-    # a decoding difference and never a coverage one.
+    # Limit both sides to what both inputs hold. Then a difference can only come
+    # from decoding, and never from coverage.
     shared_revisions = api_revisions & export_revisions
     shared_logids = api_logids & export_logids
 
@@ -189,8 +189,8 @@ def test_both_paths_project_the_same_events_over_the_same_range(inputs) -> None:
     assert [event.source_id for event in left] == [event.source_id for event in right]
 
     differing: list[tuple[str, str]] = []
-    # Exactly one revision in this archive has text neither path can resolve,
-    # and it is the only place the two are allowed to word a gap differently.
+    # Exactly one revision in this archive has text that neither path can
+    # resolve. Only there can the two paths word a gap differently.
     permitted_cause_differences = {"57624"}
     seen_cause_differences: set[str] = set()
     for one, other in zip(left, right, strict=True):
@@ -198,9 +198,9 @@ def test_both_paths_project_the_same_events_over_the_same_range(inputs) -> None:
             if getattr(one, field) == getattr(other, field):
                 continue
             if field == "changes":
-                # Each input can only explain the text it itself could not
-                # resolve, so the cause recorded in gaps.csv is allowed to
-                # differ; nothing else may.
+                # Each input can only explain its own failure to resolve the
+                # text. Thus the cause in gaps.csv can differ. Nothing else can
+                # differ.
                 keys = set(one.changes) | set(other.changes)
                 assert set(one.changes) == set(other.changes)
                 for key in sorted(keys):
@@ -243,9 +243,9 @@ def test_the_union_projects_and_records_every_additive_class(inputs) -> None:
     assert events
     gap_rows = events[-1].changes["_meta/wiki/gaps.csv"].splitlines()[1:]
 
-    # Each input explains unresolvable text in its own terms, so the union has
-    # to settle on one: exactly one row per revision, carrying the export's
-    # more specific cause.
+    # Each input explains unresolvable text in its own words, so the union
+    # must choose one. It keeps exactly one row for each revision, with the
+    # more specific cause from the export.
     unresolvable = [row for row in gap_rows if "text unresolvable" in row]
     by_revid = Counter(row.split(",")[0] for row in unresolvable)
     assert by_revid and max(by_revid.values()) == 1
@@ -257,10 +257,10 @@ def test_the_union_projects_and_records_every_additive_class(inputs) -> None:
         assert f"[additive.{name}]" in coverage
         assert f"count = {count}" in coverage
 
-    # The export adds events, and anything it stops projecting is written down
-    # rather than dropped: adding the export's own move logs and deleted
-    # lineages can change which page holds a path when a log entry fires, and
-    # such an entry must then appear in gaps.csv.
+    # The export adds events. If an event is no longer projected, the code
+    # records it and does not drop it. The move logs and deleted lineages of the
+    # export can change which page holds a path when a log entry applies. Such
+    # an entry must then appear in gaps.csv.
     api_only = list(project(api_fragments, api_logs, media))
     assert len(events) > len(api_only)
     gaps = events[-1].changes["_meta/wiki/gaps.csv"]

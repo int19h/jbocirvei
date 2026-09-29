@@ -1139,10 +1139,11 @@ def test_media_metadata_is_manifest_only_and_keeps_published_ip_uploader() -> No
 def test_move_back_is_not_forced_before_the_move_that_preceded_it() -> None:
     """A page moved away and straight back keeps both renames in log order.
 
-    Each rename leaves a null revision whose comment names both titles, so
-    SPEC.md 3.2 rule 4's migration-skew test fits the second rename as well as
-    the first. Ordering the second one before the first would put the page back
-    at its original title while the redirect left there still holds the path.
+    Each rename leaves a null revision whose comment names both titles. Thus
+    the migration-skew test of SPEC.md 3.2 rule 4 fits the second rename as
+    well as the first. If the second rename came before the first, the page
+    goes back to its original title while the redirect there still holds the
+    path.
     """
 
     page = WikiPageFragment(
@@ -1227,9 +1228,9 @@ def test_a_move_onto_its_own_path_is_a_commit_that_changes_nothing() -> None:
     """MediaWiki logs a case-only rename that normalizes back to the source.
 
     In a first-letter namespace `Module:documentation` is `Module:Documentation`,
-    so the move is a no-op. SPEC.md 3.2 keeps one source log as one commit so a
-    citation resolves, and an event may not write and delete the same path, so
-    the commit carries no file change at all.
+    so the move changes nothing. SPEC.md 3.2 keeps one source log as one commit
+    so that a citation resolves. An event must not write and delete the same
+    path. Thus the commit carries no file change at all.
     """
 
     page = WikiPageFragment(
@@ -1267,8 +1268,8 @@ def test_a_move_onto_its_own_path_is_a_commit_that_changes_nothing() -> None:
     assert [event.source_id for event in events] == ["revid=1", "logid=5"]
     moved = events[1]
     assert moved.event == "moved"
-    # The last event of a run also carries the folded `_meta` indexes, so what
-    # matters is that the move itself contributes no page file and removes none.
+    # The last event of a run also carries the folded `_meta` indexes. Thus the
+    # test is that the move itself adds no page file and removes none.
     assert [path for path in moved.changes if path.startswith("wiki/")] == []
     assert moved.deletions == ()
     assert moved.trailers["Moved-From"] == "wiki/module/Documentation.wiki"
@@ -1278,12 +1279,12 @@ def test_a_move_onto_its_own_path_is_a_commit_that_changes_nothing() -> None:
 def test_wiki_coverage_reports_what_it_covers_not_only_what_it_could_not_serve() -> (
     None
 ):
-    """Every count in this file used to sit under an [additive.*] table.
+    """At first, every count in this file was under an [additive.*] table.
 
-    Anything reading top-level counters therefore found nothing, and the
-    README rendered the wiki — the largest source after the dictionary — as an
-    empty line. The additive classes are still there; they are just no longer
-    the only thing there.
+    Thus a tool that read the top-level counters found nothing. The README
+    rendered the wiki as an empty line, but the wiki is the largest source
+    after the dictionary. The additive classes are still there, but they are
+    no longer the only thing there.
     """
 
     from jbomohi_tools.project.wiki import _coverage_toml
@@ -1296,7 +1297,7 @@ def test_wiki_coverage_reports_what_it_covers_not_only_what_it_could_not_serve()
     assert "pages = 14486" in rendered
     assert "revisions = 53279" in rendered
     assert "not_projected = 21224" in rendered
-    # What one input could not serve is still recorded, with its cause.
+    # The file still records what one input cannot serve, with its cause.
     assert "[additive.export_revisions_without_actor_row]" in rendered
     assert "count = 2608" in rendered
     # The plain counts come first: what is here, before what is missing.

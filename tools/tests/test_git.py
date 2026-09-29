@@ -24,11 +24,12 @@ def git(cwd: Path, *args: str) -> str:
 
 
 def utc_z(value: str) -> str:
-    """Spell a zero UTC offset as `Z`, whichever form git printed.
+    """Write a zero UTC offset as `Z`, in either form that git prints.
 
     For `%aI`, `%cI` and `--date=iso-strict`, some git versions print a zero
-    offset as `Z` and others as `+00:00`. Both are the same ISO 8601 instant,
-    so the tests accept either and still pin the date and the zero offset.
+    offset as `Z`, and others print `+00:00`. Both forms are the same ISO 8601
+    instant. So the tests accept either form, and still pin the date and the
+    zero offset.
     """
 
     return value[: -len("+00:00")] + "Z" if value.endswith("+00:00") else value
@@ -499,14 +500,14 @@ def _fresh(tmp_path: Path, name: str) -> Path:
 
 
 def _sequence(count: int) -> list[Event]:
-    """A run of events touching writes, rewrites, deletions and a submodule."""
+    """A series of events with writes, rewrites, deletions and a submodule."""
 
     start = datetime(2004, 1, 2, 3, 4, 5, tzinfo=UTC)
     events: list[Event] = []
     for index in range(count):
         changes: dict[str, str | bytes] = {
             f"wiki/main/Page{index}.wiki": f"body {index}\n",
-            # Rewrite a shared index file every time, as the projectors do.
+            # Rewrite a shared index file each time, as the projectors do.
             "_meta/wiki/pages.csv": f"pageid\n{index}\n",
         }
         deletions: tuple[str, ...] = ()
@@ -528,10 +529,10 @@ def _sequence(count: int) -> list[Event]:
 def test_build_session_commits_are_identical_to_the_per_event_path(
     tmp_path: Path,
 ) -> None:
-    """The fast build path must produce the same history, commit for commit.
+    """The fast build path must make the same history, commit for commit.
 
-    It skips the clean check and keeps one index alive, so nothing about the
-    resulting objects may change: same trees, same commits, same head.
+    It skips the clean check and keeps one index alive. The resulting objects
+    must not change: the same trees, the same commits, the same head.
     """
 
     from jbomohi_tools.git import BuildCommitSession
@@ -550,8 +551,8 @@ def test_build_session_commits_are_identical_to_the_per_event_path(
     assert git(fast, "rev-list", "--count", "HEAD") == git(
         careful, "rev-list", "--count", "HEAD"
     )
-    # The worktree the session leaves behind must match the careful path too,
-    # since `verify` reads files and their modes, not only the trees.
+    # The worktree after the session must also match the careful path, because
+    # `verify` reads files and their modes, not only the trees.
     assert git(fast, "status", "--porcelain=v1", "--untracked-files=all") == ""
     for name in ("wiki/main/Page11.wiki", "_meta/wiki/pages.csv"):
         assert (fast / name).read_bytes() == (careful / name).read_bytes()
@@ -568,7 +569,7 @@ def test_build_session_refuses_a_dirty_corpus(tmp_path: Path) -> None:
 
 
 def test_build_session_carries_submodules_and_gitlinks(tmp_path: Path) -> None:
-    """The .gitmodules merge must still accumulate across session commits."""
+    """The .gitmodules merge must still collect entries across session commits."""
 
     from jbomohi_tools.git import BuildCommitSession
 
@@ -603,10 +604,10 @@ def test_build_session_carries_submodules_and_gitlinks(tmp_path: Path) -> None:
 def test_fast_import_history_is_identical_to_both_other_paths(tmp_path: Path) -> None:
     """Three backends, one history: the objects must be the same objects.
 
-    fast-import writes commits directly instead of staging an index, so this
-    pins every part the plumbing path decides: author and committer identity,
-    the raw date, the message and its trailers, the tree, and the worktree the
-    build leaves for `verify` to read.
+    fast-import writes commits directly, and does not stage an index. So this
+    test pins each part that the plumbing path decides: the author and committer
+    identity, the raw date, the message and its trailers, the tree, and the
+    worktree that the build leaves for `verify` to read.
     """
 
     from jbomohi_tools.git import BuildCommitSession, FastImportSession
@@ -639,7 +640,7 @@ def test_fast_import_history_is_identical_to_both_other_paths(tmp_path: Path) ->
 
 
 def test_fast_import_keeps_submodules_gitlinks_and_empty_trees(tmp_path: Path) -> None:
-    """The .gitmodules merge, gitlink modes and unchanged-tree events survive."""
+    """The .gitmodules merge, gitlink modes and events with no tree change survive."""
 
     from jbomohi_tools.git import FastImportSession
 
@@ -680,7 +681,7 @@ def test_fast_import_keeps_submodules_gitlinks_and_empty_trees(tmp_path: Path) -
         careful, "show", "HEAD:.gitmodules"
     )
     assert git(imported, "rev-list", "--count", "HEAD") == "3"
-    # The last event changed nothing, so its tree is its parent's.
+    # The last event changed nothing, so its tree is the tree of its parent.
     assert git(imported, "rev-parse", "HEAD^{tree}") == git(
         imported, "rev-parse", "HEAD~1^{tree}"
     )
@@ -706,7 +707,7 @@ def test_fast_import_refuses_a_deletion_of_an_untracked_path(tmp_path: Path) -> 
 
 
 def test_fast_import_continues_an_existing_history(tmp_path: Path) -> None:
-    """A build starts from the deterministic root commit, not an empty branch."""
+    """A build starts from the deterministic root commit, not from an empty branch."""
 
     from jbomohi_tools.git import FastImportSession
 
@@ -750,10 +751,10 @@ def _three_ways(tmp_path: Path, events: tuple[Event, ...]) -> str:
 
 
 def test_pre_epoch_events_are_dated_alike_by_every_backend(tmp_path: Path) -> None:
-    """A pre-1970 document commits at the epoch with its true date recorded.
+    """A pre-1970 document commits at the epoch, and the commit records its true date.
 
-    `_git_date` clamps to the epoch and the fast-import stream computes its own
-    raw timestamp; nothing else pins them to the same instant.
+    `_git_date` clamps the date to the epoch. The fast-import stream calculates
+    its own raw timestamp. Only this test pins them to the same instant.
     """
 
     event = base_event(
@@ -775,11 +776,12 @@ def test_pre_epoch_events_are_dated_alike_by_every_backend(tmp_path: Path) -> No
 def test_paths_needing_quoting_are_written_alike_by_every_backend(
     tmp_path: Path,
 ) -> None:
-    """fast-import reads one path per line, so odd paths must survive quoting.
+    """fast-import reads one path on each line, so unusual paths must survive quoting.
 
-    `_safe_repo_path` refuses a backslash, so the cases that can actually occur
-    are spaces, quotes and non-ASCII — all of which `ls-tree` would C-quote on
-    the way back in, which is why the tracked set is read NUL-separated.
+    `_safe_repo_path` refuses a backslash. So the cases that can occur are
+    spaces, quotes and non-ASCII characters. When the code reads paths back,
+    `ls-tree` C-quotes all of these. That is why the code reads the tracked set
+    with NUL separators.
     """
 
     odd = 'mail/lojban-list/cur/caf é "quoted" name:2,S'
@@ -796,9 +798,10 @@ def test_paths_needing_quoting_are_written_alike_by_every_backend(
         repo = tmp_path / name / "repo"
         assert not (repo / odd).exists()
         assert git(repo, "rev-list", "--count", "HEAD") == "2"
-    # The deletion had to be recognised as tracked, not refused as unknown:
-    # the path is in the first commit's tree and gone from the second. Read it
-    # NUL-separated, because git quotes such a path in ordinary output.
+    # The session must see the deleted path as tracked, and must not refuse it
+    # as unknown. The path is in the tree of the first commit and not in the
+    # second. Read it with NUL separators, because git quotes such a path in
+    # ordinary output.
     imported = tmp_path / "imported" / "repo"
     before = git(imported, "ls-tree", "-r", "-z", "--name-only", "HEAD~1").split("\0")
     after = git(imported, "ls-tree", "-r", "-z", "--name-only", "HEAD").split("\0")
@@ -807,12 +810,12 @@ def test_paths_needing_quoting_are_written_alike_by_every_backend(
 
 
 def test_a_session_resuming_history_knows_its_quoted_paths(tmp_path: Path) -> None:
-    """A session reads the paths it inherits, and git quotes those by default.
+    """A session reads the paths that it inherits, and git quotes those by default.
 
-    Within one session a path is tracked because the session itself wrote it,
-    so the inherited set only matters when a build continues existing history —
-    which is exactly when `ls-tree` would hand back a C-quoted name that
-    matches nothing, and a legitimate deletion would be refused as untracked.
+    In one session, a path is tracked because the session itself wrote it. So
+    the inherited set matters only when a build continues existing history. In
+    that case, `ls-tree` gives back a C-quoted name that matches nothing. Then
+    the session refuses a correct deletion as untracked.
     """
 
     from jbomohi_tools.git import FastImportSession
@@ -839,10 +842,10 @@ def test_a_session_resuming_history_knows_its_quoted_paths(tmp_path: Path) -> No
 
 
 def test_encoded_author_names_are_identical_in_every_backend(tmp_path: Path) -> None:
-    """`commit-tree` sanitises idents; fast-import takes them literally.
+    """`commit-tree` cleans up idents, but fast-import takes them as they are.
 
-    What keeps the two equal is `_git_safe_name`, which encodes the syntax git
-    cannot retain before either backend sees it.
+    `_git_safe_name` keeps the two equal. It encodes the characters that git
+    cannot keep before either backend sees them.
     """
 
     author = Identity.namespaced("mw.lojban.org", "odd <name> with %")
@@ -855,16 +858,16 @@ def test_encoded_author_names_are_identical_in_every_backend(tmp_path: Path) -> 
 
 
 def test_an_event_with_more_paths_than_a_command_line_holds(tmp_path: Path) -> None:
-    """One `git add` per event met ARG_MAX when IRC arrived.
+    """One `git add` for each event hit ARG_MAX when the IRC source came.
 
-    A refresh commit carries every archive manifest, and the IRC fetch took the
-    archive past 70,000 of them. The whole build died after 65 minutes with
-    `[Errno 7] Argument list too long: 'git'` — a failure no fixture with a
-    handful of files can produce, so the test has to be large enough to fail.
+    A refresh commit contains every archive manifest, and the IRC fetch took the
+    archive past 70,000 of them. The whole build stopped after 65 minutes with
+    `[Errno 7] Argument list too long: 'git'`. A fixture with a few files cannot
+    cause this failure. So the test must be large enough to fail.
     """
 
     corpus = unborn_worktree(tmp_path)
-    # Comfortably past a typical 2 MiB ARG_MAX once the paths are joined.
+    # When the code joins the paths, they are well past a typical 2 MiB ARG_MAX.
     changes = {
         f"_meta/archive/bulk/{index:06d}-{'x' * 60}.toml": b"k = 1\n"
         for index in range(40_000)

@@ -93,8 +93,8 @@ def test_build_update_verify_cli_wiring(monkeypatch, tmp_path: Path, capsys) -> 
     assert "snapshot=snapshot/y" in printed
     assert "instructions=refreshed" in printed
 
-    # `--push` pushes even when nothing new was committed: a refresh whose push
-    # failed is current locally and must still be publishable.
+    # `--push` pushes even when the refresh made no new commit. If the push of a
+    # refresh fails, the local corpus is current, and a second run must push it.
     pushes: list[str] = []
     monkeypatch.setattr(
         "jbomohi_tools.cli.refresh_corpus",

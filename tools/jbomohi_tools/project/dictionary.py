@@ -1,4 +1,7 @@
-"""Strict PostgreSQL COPY loading for dictionary projection inputs."""
+"""Load the PostgreSQL COPY blocks that the dictionary projector reads.
+
+The loader is strict. It refuses any input that it cannot read without a guess.
+"""
 
 from __future__ import annotations
 
@@ -23,7 +26,7 @@ from ..git import UNTITLED, Event, Identity
 
 
 class DictionaryParseError(ValueError):
-    """A dictionary export violates the expected public schema."""
+    """A dictionary export does not follow the expected public schema."""
 
 
 LENSISKU_COPY_COLUMNS: dict[str, tuple[str, ...]] = {
@@ -480,7 +483,10 @@ def load_copy_tables(
     *,
     forbidden: frozenset[str] = FORBIDDEN_DATA_TABLES,
 ) -> dict[str, tuple[Mapping[str, str | None], ...]]:
-    """Load selected pg_dump COPY blocks, rejecting private tables before rows."""
+    """Load the selected COPY blocks of a pg_dump file.
+
+    Refuse a private table before the code reads any of its rows.
+    """
 
     wanted = {name: tuple(columns) for name, columns in expected.items()}
     rows: dict[str, list[Mapping[str, str | None]]] = {name: [] for name in wanted}
@@ -549,7 +555,7 @@ def load_copy_tables(
                 fields = row_body.split(b"\t")
                 if len(fields) != len(selected):
                     raise DictionaryParseError(
-                        f"dictionary dump {path} has {len(fields)} fields in {table}; "
+                        f"dictionary dump {path} has {len(fields)} fields in {table}, "
                         f"expected {len(selected)}"
                     )
                 rows[table].append(
@@ -614,7 +620,7 @@ def _load_csv(path: Path, columns: Sequence[str]) -> tuple[Mapping[str, str], ..
 
 
 def load_dictionary_dump(dump: Path, users: Path, scores: Path) -> RawDictionaryDump:
-    """Load the three sanitized Lensisku export components."""
+    """Load the three sanitized files of the Lensisku export."""
 
     return RawDictionaryDump(
         tables=load_copy_tables(dump),
@@ -624,7 +630,7 @@ def load_dictionary_dump(dump: Path, users: Path, scores: Path) -> RawDictionary
 
 
 def load_jbovlaste_dump(dump: Path, users: Path, scores: Path) -> RawDictionaryDump:
-    """Load the sanitized older export for diff-only comparison."""
+    """Load the older sanitized export. The code uses it only for a diff."""
 
     return RawDictionaryDump(
         tables=load_copy_tables(dump, JBOVLASTE_COPY_COLUMNS),
@@ -686,7 +692,7 @@ def _pg_time(row: Mapping[str, str | None], name: str, context: str) -> datetime
             f"{context}: {name} is not an ISO timestamp"
         ) from exc
     if parsed.tzinfo is None:
-        raise DictionaryParseError(f"{context}: {name} lacks a UTC offset")
+        raise DictionaryParseError(f"{context}: {name} has no UTC offset")
     return parsed.astimezone(UTC)
 
 
@@ -941,9 +947,9 @@ def _render_comments(state: _WordState) -> str:
 
 
 def _summary(word: str, suffix: str, message: str = "") -> str:
-    # Truncating to 36 characters can cut immediately after a word and leave
-    # the space behind, which a commit subject may not end with. The wiki
-    # projector already strips for the same reason.
+    # A cut at 36 characters can fall right after a word and leave the space at
+    # the end. A commit subject must not end with a space. The wiki projector
+    # strips the space for the same reason.
     word = word.strip() or UNTITLED
     clean_message = " ".join(message.split())[:36].rstrip()
     tail = f" {suffix}"
@@ -983,7 +989,7 @@ def _comment_text(value: str, context: str) -> str:
             raise DictionaryParseError(
                 f"{context}: block {index} has type={type(kind).__name__} "
                 f"kind={kind!r} "
-                f"data={type(data).__name__}; expected strings"
+                f"data={type(data).__name__}, expected strings"
             )
         if kind == "text" and data is not None:
             text.append(data)
@@ -1149,7 +1155,11 @@ def _diff_value(
 
 
 def jbovlaste_diff(data: RawDictionaryDump, older: RawDictionaryDump) -> str:
-    """Render old-only or text/time-divergent rows without merging snapshots."""
+    """Render the rows that differ between the two exports.
+
+    These are the rows that are only in the old export, and the rows whose text
+    or time is different. Do not merge the two snapshots.
+    """
 
     findings: list[Mapping[str, object]] = []
     for table, (key_fields, compared_fields) in _DIFF_FIELDS.items():
@@ -1511,7 +1521,7 @@ def project(
         )
         raise DictionaryParseError(
             f"{len(latest_state_mismatches)} latest definition version(s) disagree "
-            f"with current state; fields={dict(sorted(field_counts.items()))}: "
+            f"with current state, fields={dict(sorted(field_counts.items()))}: "
             f"{shown}{suffix}"
         )
 

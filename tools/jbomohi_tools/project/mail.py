@@ -1,4 +1,7 @@
-"""Deterministic RFC 822 deduplication and Maildir/thread projection."""
+"""Remove duplicate RFC 822 messages, and project the rest to Maildir and threads.
+
+The same input always gives the same output.
+"""
 
 from __future__ import annotations
 
@@ -65,7 +68,10 @@ DEFAULT_ARCHIVE_GAPS: dict[str, dict[str, str]] = {
 
 
 class MailParseError(ValueError):
-    """A mail manifestation cannot satisfy the public corpus contract."""
+    """A mail manifestation does not meet the rules of the public corpus.
+
+    A manifestation is one archived copy of a message.
+    """
 
 
 @dataclass(frozen=True, slots=True)
@@ -263,7 +269,10 @@ def _mhonarc_from_r13(value: str) -> str:
 
 
 def reconstruct_mhonarc(payload: bytes) -> bytes:
-    """Reconstruct deterministic RFC 822 from one MHonArc message page."""
+    """Make an RFC 822 message again from one MHonArc message page.
+
+    The same page always gives the same bytes.
+    """
 
     try:
         document = payload.decode("utf-8")
@@ -384,7 +393,7 @@ def _preserved_header(raw: bytes, message: Message, name: str) -> tuple[str, boo
 
 
 def _naive_header_date(value: str | None) -> datetime | None:
-    """Parse one RFC 822 date header, or None when it does not parse."""
+    """Parse one RFC 822 date header. If it does not parse, return None."""
 
     if not value:
         return None
@@ -398,18 +407,19 @@ def _naive_header_date(value: str | None) -> datetime | None:
 def _message_date(
     message: Message, manifestation: MailManifestation, raw: bytes
 ) -> tuple[datetime, str, str | None, bool, str, tuple[str, ...]]:
-    """Date one message, saying where the date came from and what was refused.
+    """Find the date of one message, its origin, and the values that the code refused.
 
-    SPEC.md 3.3: a `Date:` or `Received:` value resolving at or before the Unix
-    epoch is a corrupt header rather than a date, so it is discarded and the
-    next evidence is used. Each discarded value is returned verbatim so
-    `gaps.csv` can record it and `coverage.toml` can count it.
+    SPEC.md 3.3: if a `Date:` or `Received:` value gives a time at or before
+    the Unix epoch, the header is corrupt and is not a date. So the code
+    discards it and uses the next evidence. The code returns each discarded
+    value exactly as it was. Then `gaps.csv` can record it and `coverage.toml`
+    can count it.
     """
 
     unusable: list[str] = []
     date_value = _decoded_header(message, "Date")
-    # The record keeps the header as the message actually carried it, not as
-    # the email policy re-renders it.
+    # The record keeps the header as it was in the message. It does not keep
+    # the new form that the email policy writes.
     literal = _raw_header(raw, "Date")
     verbatim = _decode_raw_header(literal) if literal is not None else date_value
     parsed = _naive_header_date(date_value)
@@ -443,7 +453,7 @@ def _message_date(
 
 
 def _one_line(value: str | None) -> str:
-    """Collapse a header to one CSV-safe line, preserving its characters."""
+    """Put a header on one line that is safe for CSV. Keep all of its characters."""
 
     return " ".join((value or "").split())
 
@@ -679,7 +689,10 @@ def load_maildir(
     manifestation: str = "lists-plain",
     provenance_prefix: str | None = None,
 ) -> Iterator[MailManifestation]:
-    """Yield lazy manifestations from an extracted Maildir cur/new tree."""
+    """Yield manifestations from an extracted Maildir cur/new tree.
+
+    A manifestation reads its file at the time that the code needs the bytes.
+    """
 
     order = 0
     for directory in ("cur", "new"):
@@ -712,7 +725,10 @@ def load_maildir(
 
 
 def numbered_rfc822(raw: bytes) -> bytes:
-    """Remove the transport mbox envelope from one numbered raw message."""
+    """Remove the mbox envelope line from one numbered raw message.
+
+    The mail transport adds the envelope line. It is not part of the message.
+    """
 
     first, separator, rest = raw.partition(b"\n")
     if _MBOX_ENVELOPE.match(first.rstrip(b"\r")) and separator:
@@ -727,7 +743,7 @@ def load_numbered_rfc822(
     manifestation: str = "old-lojban-list",
     provenance_prefix: str | None = None,
 ) -> Iterator[MailManifestation]:
-    """Load a directory of numeric raw messages, dropping mbox envelopes."""
+    """Load a directory of raw messages with number names. Remove mbox envelopes."""
 
     paths = sorted(
         (path for path in root.iterdir() if path.is_file() and path.name.isdigit()),
@@ -753,7 +769,7 @@ def load_mbox(
     list_name: str,
     provenance_prefix: str | None = None,
 ) -> Iterator[MailManifestation]:
-    """Split one mboxo file while preserving RFC 822 bytes."""
+    """Split one mboxo file. Keep the RFC 822 bytes as they are."""
 
     raw = RawMessage(path=path).read()
     yield from mbox_manifestations(
@@ -764,7 +780,10 @@ def load_mbox(
 
 
 def split_mbox(raw: bytes) -> list[bytes]:
-    """Split mboxo bytes and unescape transport-escaped From lines."""
+    """Split mboxo bytes, and restore the From lines that the transport escaped.
+
+    The transport adds ">" before a body line that starts with "From ".
+    """
 
     messages: list[bytes] = []
     current: list[bytes] = []
@@ -797,7 +816,7 @@ def mbox_manifestations(
     list_name: str,
     provenance_prefix: str,
 ) -> Iterator[MailManifestation]:
-    """Yield manifestations from already decompressed mboxo bytes."""
+    """Yield manifestations from mboxo bytes that are already decompressed."""
 
     messages = split_mbox(raw)
     for order, payload in enumerate(messages):
@@ -817,7 +836,10 @@ def load_mh_zip(
     list_name: str = "jbosnu",
     provenance_prefix: str = "jbosnu_raw.zip",
 ) -> Iterator[MailManifestation]:
-    """Load numeric RFC 822 messages from the public jbosnu MH-folder zip."""
+    """Load the RFC 822 messages with number names from the public jbosnu zip.
+
+    The zip holds an MH folder, which keeps one message in each numbered file.
+    """
 
     try:
         with zipfile.ZipFile(path) as archive:
@@ -1082,8 +1104,8 @@ def _csv_text(columns: Sequence[str], rows: Sequence[Mapping[str, object]]) -> s
 
 
 def _summary(subject: str, list_name: str) -> str:
-    # Mail keeps its own placeholder, which predates the general rule and is
-    # already what `messages.csv` and the thread views show.
+    # Mail keeps its own placeholder. This placeholder is older than the
+    # general rule, and `messages.csv` and the thread views already show it.
     cleaned = " ".join(subject.split()) or "[no subject]"
     budget = 72 - len(f"mail/{list_name}: ")
     return cleaned[: max(1, budget - 1)] + "…" if len(cleaned) > budget else cleaned
@@ -1095,7 +1117,7 @@ def project(
     renderer: str = "mail-v1",
     archive_gaps: Mapping[str, Mapping[str, str]] | None = None,
 ) -> Iterator[Event]:
-    """Deduplicate mail, build threads, and emit one event per unique message."""
+    """Remove duplicate mail, make threads, and give one event for each message."""
 
     gaps_by_list = DEFAULT_ARCHIVE_GAPS if archive_gaps is None else archive_gaps
     winners, duplicates = deduplicate(manifestations)

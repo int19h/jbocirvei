@@ -1,4 +1,7 @@
-"""Deterministic rendering of the main-branch instruction files."""
+"""Render the instruction files of the main branch.
+
+The rendering is deterministic: the same input always gives the same output.
+"""
 
 from __future__ import annotations
 
@@ -12,17 +15,19 @@ from ..git import EPOCH, Event, Identity, commit_event, git_output
 
 TOKEN = re.compile(r"\{\{([a-z_]+)\}\}")
 OBJECT_ID = re.compile(r"^[0-9a-f]{40}(?:[0-9a-f]{24})?$")
-DEFAULT_COVERAGE = "No source events have been projected yet."
-DEFAULT_LAYOUT = "See `AGENTS.md` for the corpus directory map."
+DEFAULT_COVERAGE = "The repository has no source events yet."
+DEFAULT_LAYOUT = "See `AGENTS.md` for the map of the directories in the repository."
 DEFAULT_PROVENANCE = (
-    "Each source is republished under its own terms as published by its owner; "
-    "this repository claims no licence of its own over the data."
+    "This repository publishes each source again, under the terms of that source "
+    "as its owner published them. The repository claims no license of its own "
+    "over the data."
 )
 
 
-# What the root commit shows where a build-specific value would go. SPEC.md
-# 3.11/§5: the root must not change when the tools do, so it names neither the
-# tools commit nor a snapshot; the tip refresh commit carries both.
+# The text that the root commit shows in place of a value that is specific to
+# one build. SPEC.md 3.11/§5: when the tools change, the root must not change.
+# So the root names neither the tools commit nor a snapshot. The refresh commit
+# at the tip carries both.
 PENDING = "pending"
 
 
@@ -38,7 +43,7 @@ class RenderContext:
 
     @classmethod
     def root(cls) -> RenderContext:
-        """The build-invariant form the root commit is rendered with."""
+        """Return the context for the root commit, which is the same in every build."""
 
         return cls(snapshot=PENDING, tools_commit=PENDING)
 
@@ -100,7 +105,7 @@ def _validate_context(context: RenderContext) -> None:
 def render_main(
     repo_root: Path, context: RenderContext | None = None
 ) -> dict[str, bytes]:
-    """Render every tracked template plus the projection schema."""
+    """Render every tracked template, and the projection schema."""
 
     root = repo_root.resolve()
     actual_context = context or RenderContext(
@@ -123,8 +128,9 @@ def render_main(
         if "\r" in output or output.startswith("\ufeff"):
             raise ValueError(f"rendered template is not UTF-8/LF-safe: {template}")
         rendered[relative] = output.encode("utf-8")
-    # The root carries the schema and the renderer versions only: naming the
-    # tools commit there would make every tools commit rewrite all of main.
+    # The root carries only the schema and the renderer versions. It does not
+    # name the tools commit. Otherwise, every tools commit changes the root, and
+    # so rewrites all of main.
     tools_line = (
         ""
         if actual_context.is_root

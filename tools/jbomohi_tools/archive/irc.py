@@ -1,4 +1,7 @@
-"""Rate-limited, resumable acquisition of the public IRC archive."""
+"""Download the public IRC archive, with a limit on the request rate.
+
+If a fetch stops, the next fetch continues from the files that it already has.
+"""
 
 from __future__ import annotations
 
@@ -21,9 +24,10 @@ from urllib.request import Request, urlopen
 from .manifest import ArchiveError, ArchiveManifest, store_object
 
 BASE_URL = "https://lojban.org/irclogs/"
-# Smallest first, so a channel that stalls cannot starve the others.
-# #lojban holds twenty-five years of logs and the other two are small,
-# and a fetch that died inside it left both untouched for an evening.
+# The smallest channel comes first, so a channel that stops cannot block the
+# others. #lojban holds twenty-five years of logs, and the other two are small.
+# One fetch failed inside #lojban, and the other two stayed unfetched for an
+# evening.
 CHANNELS = ("ckule", "jbosnu", "lojban")
 SPECIAL_DIRECTORIES = {
     "2000_all": date(2000, 10, 28),
@@ -33,7 +37,7 @@ SPECIAL_DIRECTORIES = {
 
 
 class IrcFetchError(ArchiveError):
-    """IRC discovery or download failed after bounded retries."""
+    """The IRC file listing or download failed after a limited number of retries."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,7 +72,11 @@ class _LinkParser(HTMLParser):
 
 
 class HttpClient:
-    """Small urllib client with source-wide pacing and bounded backoff."""
+    """A small urllib client that paces all requests to the source.
+
+    After a failure, it waits for a time before it tries again. The wait has a
+    limit.
+    """
 
     def __init__(
         self,
@@ -113,7 +121,7 @@ class HttpClient:
                         or not parsed.path.startswith("/irclogs/")
                     ):
                         raise IrcFetchError(
-                            f"IRC response escaped the source origin: {final_url}"
+                            f"IRC response is not from the source origin: {final_url}"
                         )
                     content_length = response.headers.get("Content-Length")
                     if content_length:
@@ -258,7 +266,9 @@ def _archive_response(
         or parsed_url.hostname not in {"lojban.org", "www.lojban.org"}
         or not parsed_url.path.startswith("/irclogs/")
     ):
-        raise IrcFetchError(f"IRC response escaped the source origin: {response.url}")
+        raise IrcFetchError(
+            f"IRC response is not from the source origin: {response.url}"
+        )
     stored = store_object(archive, response.body)
     coverage = _coverage(response.url, response.body)
     if counts is not None:
@@ -287,11 +297,14 @@ def fetch(
     client: ResponseClient | None = None,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
 ) -> FetchReport:
-    """Fetch IRC indexes and logs into the immutable archive tier.
+    """Fetch the IRC indexes and logs into the immutable archive tier.
 
-    An unchanged directory index lets an interrupted or repeated fetch reuse
-    already-manifested log objects. A changed index refetches that directory's
-    files so amended day logs produce new immutable objects and manifests.
+    The archive tier never changes a file after it writes it. If a directory
+    index did not change, a fetch that stopped or runs again uses the log
+    objects that already have manifests. A manifest is the archive record of
+    one fetched file. If an index changed, the fetch gets the files of that
+    directory again. So a day log that changed gets a new object and a new
+    manifest.
     """
 
     cutoff = _parse_since(since)
@@ -369,14 +382,14 @@ def fetch(
                     )
                     downloaded += 1
         except IrcFetchError as exc:
-            # One unreachable channel is not a reason to abandon the rest:
-            # the server was failing for #lojban while the two small
-            # channels would have finished in minutes.
+            # If the fetch cannot reach one channel, it continues with the
+            # others. This happened: the server failed for #lojban, but the two
+            # small channels needed only minutes.
             failures[channel] = str(exc)
 
     if failures:
         detail = "; ".join(f"{name}: {why}" for name, why in failures.items())
         raise IrcFetchError(
-            f"fetched {len(manifests)} manifests; channels that failed: {detail}"
+            f"fetched {len(manifests)} manifests, but these channels failed: {detail}"
         )
     return FetchReport(tuple(manifests), downloaded, reused)

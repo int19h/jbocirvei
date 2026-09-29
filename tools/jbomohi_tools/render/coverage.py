@@ -1,14 +1,14 @@
-"""What the snapshot covers, and where things are, rendered from the corpus.
+"""Render what the snapshot covers, and where things are, from the corpus.
 
-The README used to paste every integer in every `coverage.toml` as one
-comma-separated line per file. That is twenty lines of counters a reader
-cannot use, and it silently said nothing at all about the wiki, whose coverage
-file holds only `[additive.*]` tables and no top-level integers. The layout in
-`AGENTS.md` had the opposite problem: it was a fixed list, so it described
-`irc/`, `who/`, `notes/`, `loglan/` and `llg/` as present in a snapshot that
-has none of them.
+The README once pasted every integer of every `coverage.toml` file, as one line
+of comma-separated values for each file. The result was twenty lines of
+counters that a reader cannot use. It also said nothing about the wiki, because
+the coverage file of the wiki holds only `[additive.*]` tables and no top-level
+integers. The layout in `AGENTS.md` had the opposite fault. It was a fixed
+list. So it described `irc/`, `who/`, `notes/`, `loglan/` and `llg/` as
+present, but the snapshot had none of them.
 
-Both are now read from the corpus that is being built.
+Now this module reads both from the corpus that the tools build.
 """
 
 from __future__ import annotations
@@ -21,98 +21,114 @@ from pathlib import Path
 
 from ..git import run_git
 
-# What each top-level directory holds, in the terms a reader needs before
-# opening one: the format on disk and the encoding. Presence is never asserted
-# here; it is read from the corpus.
+# What each top-level directory holds, in the terms that a reader needs before
+# opening one: the format on disk and the encoding. This list never states that
+# a directory is present. layout_summary() reads that from the corpus.
 LAYOUT: tuple[tuple[str, str], ...] = (
     (
         "wiki/",
         (
-            "MediaWiki pages as raw wikitext, UTF-8, one file per page, full "
-            "revision history in git. `wiki/talk/` holds the Talk namespace."
+            "MediaWiki pages as raw wikitext (the markup source of a page), in "
+            "UTF-8. There is one file for each page, and git holds the full "
+            "history of revisions. `wiki/talk/` holds the Talk namespace: the "
+            "pages where people discuss other pages."
         ),
     ),
     (
         "tiki/",
         (
-            "The pre-2013 Tiki wiki in Tiki markup, UTF-8, with history. "
-            "`tiki/forums/` holds WikiDiscuss threads and `tiki/talk/` page "
-            "comments. Some text is stored mojibake and is published "
-            "unrepaired."
+            "The Tiki wiki from before 2013, in Tiki markup and UTF-8, with its "
+            "history. `tiki/forums/` holds the WikiDiscuss threads, and "
+            "`tiki/talk/` holds the comments on pages. Some text is stored as "
+            "mojibake (text decoded with the wrong character set). This "
+            "repository publishes that text without repair."
         ),
     ),
     (
         "mail/",
         (
-            "One Maildir per list under `<list>/cur/`, byte-exact RFC 822 as "
-            "the archives hold it, so transfer encodings and original charsets "
-            "are intact. `<list>/threads/<YYYY>/` holds decoded thread "
-            "renderings, UTF-8, which are derived views and name their "
-            "originals."
+            "One Maildir (a folder with one file for each message) for each "
+            "list, under `<list>/cur/`. Each message is in RFC 822 format, with "
+            "exactly the bytes that the archives hold. So the transfer "
+            "encodings and the original character sets do not change. "
+            "`<list>/threads/<YYYY>/` holds decoded renderings of threads, in "
+            "UTF-8. A tool made these views from the originals, and each view "
+            "names its originals."
         ),
     ),
     (
         "irc/",
         (
-            "One UTF-8 file per channel-day, `<channel>/<YYYY>/<date>.txt`, "
-            "with a header line giving the timezone and line format."
+            "One UTF-8 file for each channel and day, at "
+            "`<channel>/<YYYY>/<date>.txt`. A header line in each file gives "
+            "the timezone and the format of the lines."
         ),
     ),
     (
         "dict/",
         (
-            "One directory per word: `word.toml` for the word and its "
-            "etymology, `<lang>-<id>.md` per definition with its examples, "
-            "`comments.md`. UTF-8, front matter in TOML."
+            "One directory for each word. It holds `word.toml` for the word and "
+            "its etymology, one `<lang>-<id>.md` file for each definition with "
+            "its examples, and `comments.md`. The files are UTF-8, and their "
+            "front matter (the header block at the start of a file) is TOML."
         ),
     ),
     (
         "cll/",
         (
-            "*The Complete Lojban Language* as plain UTF-8 text, one file per "
-            "chapter per edition, under `cll/editions/<edition>/`, which need "
-            "no submodule. `cll/src` is the DocBook source as a submodule; if "
-            "it is empty, run `git submodule update --init`."
+            "*The Complete Lojban Language* as plain UTF-8 text, under "
+            "`cll/editions/<edition>/`. There is one file for each chapter of "
+            "each edition. These files need no submodule. `cll/src` is a "
+            "submodule that holds the DocBook source. If it is empty, run "
+            "`git submodule update --init`."
         ),
     ),
     (
         "grammars/",
         (
-            "Formal grammars and parsers: the official YACC/BNF baselines, "
-            "camxes and its lineage, ilmentufa, zantufa, zasni gerna and "
-            "others. The vendored ones are ordinary files; the rest are "
-            "submodules, so run `git submodule update --init` if a `src` "
-            "directory is empty. `_meta/grammars/index.csv` says which is "
-            "which and under what terms."
+            "Formal grammars and parsers: the official baselines in YACC and "
+            "BNF form, camxes and the parsers that descend from it, ilmentufa, "
+            "zantufa, zasni gerna, and others. The vendored grammars (copies "
+            "that this repository keeps) are ordinary files. The others are "
+            "submodules. If a `src` directory is empty, run "
+            "`git submodule update --init`. `_meta/grammars/index.csv` tells "
+            "which grammars are files and which are submodules, and under what "
+            "terms each one is published."
         ),
     ),
     (
         "who/",
         (
-            "`attestations.csv`: dated, cited claims relating nicks, addresses "
-            "and wiki users. Claims, never resolved identities."
+            "`attestations.csv`: dated claims, with citations, that connect "
+            "nicknames, email addresses and wiki user names. These are claims. "
+            "They never settle who a person is."
         ),
     ),
     (
         "notes/",
         (
-            "Contributed research notes under `<YYYY>/`, UTF-8 Markdown with "
-            "TOML front matter. Maps to evidence, never evidence."
+            "Research notes that people contributed, under `<YYYY>/`, as UTF-8 "
+            "Markdown with TOML front matter. A note is a map to the evidence. "
+            "It is never evidence itself."
         ),
     ),
     (
         "loglan/",
-        "Loglan-era documents, where republication is permitted.",
+        (
+            "Documents from the Loglan era. This directory holds only the "
+            "documents whose terms allow republication."
+        ),
     ),
     (
         "llg/",
-        "The Logical Language Group's own publications.",
+        "The publications of the Logical Language Group itself.",
     ),
     (
         "_meta/",
         (
-            "Coverage files, archive manifests and CSV indexes. TOML and CSV "
-            "with header rows, UTF-8."
+            "Coverage files (what each source holds and lacks), archive "
+            "manifests (a record of each archived source file) and CSV indexes. "
+            "The files are UTF-8 text, in TOML or in CSV with a header row."
         ),
     ),
 )
@@ -143,10 +159,10 @@ class _SourceCoverage:
 
 def _period(tally: SourceTally) -> str:
     if tally.first is None or tally.last is None:
-        return "—"
-    # UTC, because the tallies come from the history and the fast-import
-    # backend stores every commit time in UTC: an IRC event at 20:00 -08:00 on
-    # 31 December is in the next year there, whichever backend wrote it.
+        return "unknown"
+    # Use UTC, because the tallies come from the history, and the fast-import
+    # backend stores every commit time in UTC. So an IRC event at 20:00 -08:00
+    # on 31 December is in the next year there, whichever backend wrote it.
     first = tally.first.astimezone(UTC).date()
     last = tally.last.astimezone(UTC).date()
     return str(first.year) if first.year == last.year else f"{first.year}–{last.year}"
@@ -169,7 +185,10 @@ def _plural(count: int, singular: str, plural: str | None = None) -> str:
 
 
 def _gap_reasons(path: Path, most: int = 2) -> tuple[int, list[str]]:
-    """How many non-projections a source recorded, and the commonest reasons."""
+    """Count the gaps that a source recorded, and find the most common reasons.
+
+    A gap is a source item that the tools did not project into a commit.
+    """
 
     counts: dict[str, int] = {}
     total = 0
@@ -184,7 +203,7 @@ def _gap_reasons(path: Path, most: int = 2) -> tuple[int, list[str]]:
 
 
 def _clip(text: str, width: int = 52) -> str:
-    """Enough of a reason to recognise it; the file has the rest."""
+    """Return enough of a reason to recognize it. The file has the full text."""
 
     collapsed = " ".join(text.split())
     if len(collapsed) <= width:
@@ -193,7 +212,7 @@ def _clip(text: str, width: int = 52) -> str:
 
 
 def _notes_for(corpus: Path, source: str) -> list[str]:
-    """The honest gaps for one source, from what it recorded about itself."""
+    """List the gaps of one source, from what the source recorded about itself."""
 
     notes: list[str] = []
     root = corpus / "_meta" / source
@@ -201,11 +220,12 @@ def _notes_for(corpus: Path, source: str) -> list[str]:
     if gaps.is_file():
         count, reasons = _gap_reasons(gaps)
         if count:
-            note = f"{_plural(count, 'gap')} recorded in `{source}/gaps.csv`"
+            note = f"`_meta/{source}/gaps.csv` lists {_plural(count, 'gap')}."
             if reasons:
-                # A bare five-figure count reads as damage. The two commonest
-                # reasons say what kind of absence it is.
-                note += ", mostly " + " and ".join(reasons)
+                # A five-figure count alone looks like damage. The two most
+                # common reasons tell what kind of absence it is.
+                label = "reason is" if len(reasons) == 1 else "reasons are"
+                note += f" The most common {label} " + " and ".join(reasons) + "."
             notes.append(note)
     incomplete: list[str] = []
     unusable = 0
@@ -218,27 +238,30 @@ def _notes_for(corpus: Path, source: str) -> list[str]:
         value = data.get("unusable_date_headers")
         if isinstance(value, int):
             unusable += value
-        # A source can also record that its own fetch fell short of what the
-        # upstream offered, which is a different fact from a gap in the record.
+        # A source can also record that its fetch got less than the upstream
+        # offered. That fact is different from a gap in the record.
         archive_block = data.get("archive")
         if isinstance(archive_block, dict):
             short = archive_block.get("files_listed_but_not_archived")
             if isinstance(short, int) and short:
                 unfetched += short
     if incomplete:
-        notes.append("archives known incomplete: " + ", ".join(sorted(incomplete)))
+        notes.append(
+            "Known incomplete archives: " + ", ".join(sorted(incomplete)) + "."
+        )
     if unusable:
-        notes.append(f"{_plural(unusable, 'unusable date header')}")
+        verb = "is" if unusable == 1 else "are"
+        notes.append(f"{_plural(unusable, 'date header')} {verb} unusable.")
     if unfetched:
         notes.append(
-            f"{_plural(unfetched, 'file')} the upstream listed but this "
-            "archive does not hold"
+            "The upstream site (the origin of the source) listed "
+            f"{_plural(unfetched, 'file')} that this archive does not hold."
         )
     return notes
 
 
-# One record per commit, fields and records split by ASCII separators so that
-# no trailer value can be mistaken for a boundary.
+# One record for each commit. ASCII separator characters split the fields and
+# the records, so that no trailer value can look like a boundary.
 _TALLY_FORMAT = (
     "%x1e%ct%x1f"
     "%(trailers:key=Source,valueonly,separator=%x2c)%x1f"
@@ -249,7 +272,10 @@ _TALLY_FORMAT = (
 
 
 def _source_date(value: str) -> datetime:
-    """The true date of a pre-epoch event, as precise as its trailer is."""
+    """Return the true date of a pre-epoch event, as precise as its trailer.
+
+    A pre-epoch event is an event from before 1970.
+    """
 
     parts = [int(part) for part in value.split("-")]
     year, month, day = (*parts, 1, 1)[:3]
@@ -257,19 +283,21 @@ def _source_date(value: str) -> datetime:
 
 
 def corpus_tallies(corpus: Path) -> dict[str, SourceTally]:
-    """What each source contributed, read back from the corpus history.
+    """Read from the corpus history what each source contributed.
 
-    Every refresh renders its coverage table from this, whether `build`,
-    `update` or `refresh` commits it, so the three agree on the same corpus by
-    construction. Counting the projector stream instead needed the archive, and
-    it described what the stream yielded rather than what the corpus holds: an
-    `update` of one source rendered a table of one row. Every source event is
-    one commit whose `Source:` trailer names it and whose committer time is its
-    source time (SPEC.md 2.4); the walk costs about 16 seconds over 307,103
-    commits. Pre-epoch events are the exception to the
-    committer time, which git clamps to the epoch; their true date is in
-    `Source-Date:`. Tool commits (`Source: meta`) and contributed notes and
-    attestations are not source events and are not counted.
+    Every refresh renders its coverage table from this function, whether
+    `build`, `update` or `refresh` makes the commit. So by design, the three
+    render the same table for the same corpus. The old code counted the
+    projector stream (the events that the projectors yield) instead. That
+    needed the archive, and it described what the stream gave, not what the
+    corpus holds. For example, an `update` of one source rendered a table with
+    one row. Each source event is one commit. Its `Source:` trailer names the
+    source, and its committer time is the source time (SPEC.md 2.4). The walk
+    takes about 16 seconds over 307,103 commits. Pre-epoch events are the
+    exception to the committer time, because git clamps their time to the
+    epoch. Their true date is in `Source-Date:`. Tool commits (`Source: meta`),
+    contributed notes and attestations are not source events, so this function
+    does not count them.
     """
 
     listing = run_git(corpus, ["log", f"--format={_TALLY_FORMAT}", "HEAD"]).stdout
@@ -289,10 +317,10 @@ def corpus_tallies(corpus: Path) -> dict[str, SourceTally]:
 
 
 def coverage_table(corpus: Path, tallies: dict[str, SourceTally]) -> str:
-    """One row per source: what it contributed, over what period, and the gaps."""
+    """Render one row for each source: its events, their period, and its gaps."""
 
     if not tallies:
-        return "No source events have been projected yet."
+        return "The repository has no source events yet."
     grouped: dict[str, SourceTally] = {}
     for name, tally in tallies.items():
         top = name.split("/", 1)[0]
@@ -311,19 +339,19 @@ def coverage_table(corpus: Path, tallies: dict[str, SourceTally]) -> str:
         notes = _notes_for(corpus, source)
         lines.append(
             f"| `{source}/` | {tally.events:,} | {_period(tally)} | "
-            f"{'; '.join(notes) if notes else 'none recorded'} |"
+            f"{' '.join(notes) if notes else 'None recorded.'} |"
         )
     total = sum(tally.events for tally in grouped.values())
-    lines.append(f"\nTotal: **{total:,}** source events.")
+    lines.append(f"\nTotal: {total:,} source events.")
     return "\n".join(lines)
 
 
 def layout_summary(corpus: Path) -> str:
-    """The directory map, saying which parts this snapshot actually has."""
+    """Render the directory map, and show which directories this snapshot has."""
 
     lines = []
     for name, description in LAYOUT:
         present = (corpus / name.rstrip("/")).is_dir()
         marker = "" if present else " *Not yet in this snapshot.*"
-        lines.append(f"- **`{name}`** — {description}{marker}")
+        lines.append(f"- `{name}`: {description}{marker}")
     return "\n".join(lines)

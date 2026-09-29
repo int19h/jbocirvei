@@ -209,8 +209,8 @@ def test_update_appends_only_new_source_ids_and_refreshes(tmp_path: Path) -> Non
     assert report is not None
     assert report.events == 1
     assert int(git(config.corpus, "rev-list", "--count", "HEAD")) == before + 2
-    # A run with nothing to do still reports, rather than leaving the reader to
-    # infer from a short message what happened to the instruction files.
+    # A run with nothing to do still reports. So the reader does not have to
+    # guess from a short message what happened to the instruction files.
     quiet = update_corpus(config, {"wiki": lambda: iter((first_event, second_event))})
     assert (quiet.events, quiet.refreshed, quiet.tagged) == (0, False, False)
     assert quiet.events_by_source == {}
@@ -247,7 +247,7 @@ def test_update_folds_final_stream_metadata_into_refresh(tmp_path: Path) -> None
 
 
 def test_push_main_uses_commit_ranges_then_snapshot_tag(tmp_path: Path) -> None:
-    """SPEC.md 2.2/2.7: the push runs in the corpus, where main and its tags are."""
+    """SPEC.md 2.2/2.7: the push runs in the corpus, which holds main and its tags."""
 
     config, _commit = tools_repo(tmp_path / "repo")
     remote = tmp_path / "remote.git"
@@ -258,7 +258,7 @@ def test_push_main_uses_commit_ranges_then_snapshot_tag(tmp_path: Path) -> None:
         for number in range(1, 6)
     )
     report = build_corpus(config, {"wiki": lambda: iter(events)})
-    # init took the remote from the tools checkout, so the corpus can publish.
+    # init took the remote from the tools checkout, so the corpus can push.
     assert git(config.corpus, "remote", "get-url", "origin") == str(remote)
     pushed = push_main_ranges(config.corpus, report.snapshot, commits_per_push=2)
     assert pushed.main_updates == 4
@@ -278,8 +278,8 @@ def test_push_main_rejects_a_nonancestor_remote(tmp_path: Path) -> None:
     commit_fixture(seed, valid_message("unrelated"))
     git(seed, "remote", "add", "origin", str(remote))
     git(seed, "push", "origin", "main")
-    # The remote gains its unrelated main after the corpus was built, so the
-    # push is the first thing that sees it.
+    # The remote gets its unrelated main after the corpus build. So the push is
+    # the first step that sees it.
     git(config.corpus, "remote", "add", "origin", str(remote))
     with pytest.raises(GitError, match="not an ancestor"):
         push_main_ranges(config.corpus, report.snapshot)
@@ -432,10 +432,10 @@ def test_verify_validates_dictionary_front_matter(tmp_path: Path) -> None:
 
 
 def test_audit_events_reports_every_invalid_event(tmp_path: Path) -> None:
-    """A build stops at the first bad event; the audit names them all.
+    """A build stops at the first bad event, but the audit names all of them.
 
-    Finding a corpus-wide problem one build at a time costs a full build per
-    instance, which is how two of them were found the slow way.
+    If you find a problem across the corpus one build at a time, each instance
+    costs a full build. Two such problems were found in this slow way.
     """
 
     from jbomohi_tools.build import audit_events
@@ -465,16 +465,16 @@ def test_audit_events_reports_every_invalid_event(tmp_path: Path) -> None:
     assert [source_id for _s, source_id, _p in audit.invalid] == ["revid=3"]
     assert "delete the same path" in audit.invalid[0][2]
 
-    # A blank summary is caught by validation, with its own id.
+    # Validation catches a blank summary, and reports its id.
     audit = audit_events(
         {"wiki": lambda: iter((good, event("revid=2", summary="   ")))}
     )
     assert [source_id for _s, source_id, _p in audit.invalid] == ["revid=2"]
     assert "summary" in audit.invalid[0][2]
 
-    # A projector that cannot build an event at all raises out of its stream,
-    # which ends that source; the audit says where it stopped and still checks
-    # the others, so one bad source cannot hide the rest.
+    # If a projector cannot make an event at all, it raises an error out of its
+    # stream, and that ends the source. The audit says where it stopped, and
+    # still checks the others. So one bad source cannot hide the rest.
     def broken() -> Iterator[Event]:
         yield good
         raise EventError("projector gave up")
@@ -490,12 +490,13 @@ def test_audit_events_reports_every_invalid_event(tmp_path: Path) -> None:
 
 
 def test_verify_does_not_require_gap_paths_to_exist(tmp_path: Path) -> None:
-    """A gaps file names what could not be projected, not an index of files.
+    """A gaps file names what the projector was not able to project. Not an index.
 
-    The first complete production build tripped on this: Tiki's gaps.csv has
-    180 rows carrying a `path`, of which 178 name a page kept from its history
-    alone — those files exist — and 2 name the NUL-byte page that SPEC.md
-    3.2.5(d) deliberately does not project. Requiring either would be wrong.
+    The first complete production build failed on this. The Tiki gaps.csv has
+    180 rows with a `path`. Of these, 178 name a page that only its history
+    keeps, and those files exist. The other 2 name the page with a NUL byte,
+    which SPEC.md 3.2.5(d) does not project on purpose. So the check must
+    require neither.
     """
 
     config, _commit = tools_repo(tmp_path / "repo")
@@ -513,7 +514,7 @@ def test_verify_does_not_require_gap_paths_to_exist(tmp_path: Path) -> None:
     commit_fixture(config.corpus, valid_message("gaps"))
     verify_corpus(config.corpus)
 
-    # An ordinary index still has to name files that are there.
+    # An ordinary index must still name files that exist.
     index = config.corpus / "_meta/tiki/pages.csv"
     index.write_text("title,path\nabsent,tiki/absent.tiki\n")
     commit_fixture(config.corpus, valid_message("pages"))
@@ -522,13 +523,13 @@ def test_verify_does_not_require_gap_paths_to_exist(tmp_path: Path) -> None:
 
 
 def test_a_tools_commit_does_not_rewrite_the_corpus(tmp_path: Path) -> None:
-    """SPEC.md 3.11/§5: the root is build-invariant, so history is stable.
+    """SPEC.md 3.11/§5: the root is the same in every build, so history is stable.
 
-    Before this, the root rendered the tools commit into `_meta/schema.toml`
-    and README, so every change to the tools branch changed the root hash and
-    therefore every commit beneath it. Two builds of the same events from two
-    different tools commits must now agree on every event commit, and differ
-    only in the tip refresh that names the build.
+    Before this change, the root rendered the tools commit into
+    `_meta/schema.toml` and README. So each change to the tools branch changed
+    the root hash, and so every commit after it. Now two builds of the same
+    events from two different tools commits must agree on every event commit.
+    They must differ only in the refresh at the tip, which names the build.
     """
 
     config, _first = tools_repo(tmp_path / "repo")
@@ -543,7 +544,7 @@ def test_a_tools_commit_does_not_rewrite_the_corpus(tmp_path: Path) -> None:
     first = build_corpus(config, events)
     first_ids = git(config.corpus, "rev-list", "--reverse", "HEAD").splitlines()
 
-    # Any commit on the tools branch: a doc tweak is enough to move HEAD.
+    # Any commit on the tools branch will do. A small doc change moves HEAD.
     (config.repo_root / "NOTES.md").write_text("a later tools commit\n")
     git(config.repo_root, "add", ".")
     git(
@@ -562,11 +563,11 @@ def test_a_tools_commit_does_not_rewrite_the_corpus(tmp_path: Path) -> None:
     second_ids = git(config.corpus, "rev-list", "--reverse", "HEAD").splitlines()
 
     assert len(first_ids) == len(second_ids)
-    # Root and both event commits identical; only the tip refresh differs.
+    # The root and both event commits are identical. Only the tip refresh differs.
     assert first_ids[:-1] == second_ids[:-1]
     assert first_ids[-1] != second_ids[-1]
     assert first.head != second.head
-    # And the tip is where the tools commit is recorded.
+    # And the tip records the tools commit.
     schema = git(config.corpus, "show", "HEAD:_meta/schema.toml")
     assert git(config.repo_root, "rev-parse", "HEAD") in schema
 
@@ -574,11 +575,11 @@ def test_a_tools_commit_does_not_rewrite_the_corpus(tmp_path: Path) -> None:
 def test_verify_requires_a_path_exactly_when_the_state_says_current(
     tmp_path: Path,
 ) -> None:
-    """SPEC.md 4.4: an index says whether a row still has a file.
+    """SPEC.md 4.4: an index says if a row still has a file.
 
-    297 rows of the first complete corpus named files that were not there —
-    292 deleted wiki pages and the Tiki page that is never projected — so a
-    path is now carried exactly when there is one to carry.
+    In the first complete corpus, 297 rows named files that did not exist. These
+    were 292 deleted wiki pages and the Tiki page that is never projected. So now
+    a row has a path if and only if the file exists.
     """
 
     config, _commit = tools_repo(tmp_path / "repo")
@@ -616,12 +617,12 @@ def test_verify_requires_a_path_exactly_when_the_state_says_current(
 def test_a_rebuild_repoints_its_snapshot_tag_but_update_never_does(
     tmp_path: Path,
 ) -> None:
-    """SPEC.md 4.2: a build replaces main, so a stale tag is the build's to move.
+    """SPEC.md 4.2: a build replaces main, so the build must move a stale tag.
 
-    The snapshot name comes from the last event's time, so a rebuild wants the
-    same name for a different tip. Leaving the tag on a commit that is no
-    longer in the history would make it a citation to nothing; moving one that
-    *is* still in the history would break a citation that still resolves.
+    The snapshot name comes from the time of the last event. So a rebuild needs
+    the same name for a different tip. A tag on a commit that is no longer in
+    the history is a citation to nothing. But a move of a tag that *is* still in
+    the history breaks a citation that still resolves.
     """
 
     config, _first = tools_repo(tmp_path / "repo")
@@ -630,7 +631,7 @@ def test_a_rebuild_repoints_its_snapshot_tag_but_update_never_does(
     first_tag = git(config.corpus, "rev-parse", f"{first.snapshot}^{{}}")
     assert first_tag == first.head
 
-    # A tools commit changes only the tip, so the rebuild needs the same tag
+    # A tools commit changes only the tip. So the rebuild needs the same tag
     # name for a different commit.
     (config.repo_root / "NOTES.md").write_text("later\n")
     git(config.repo_root, "add", ".")
@@ -649,7 +650,7 @@ def test_a_rebuild_repoints_its_snapshot_tag_but_update_never_does(
     assert second.head != first.head
     assert git(config.corpus, "rev-parse", f"{second.snapshot}^{{}}") == second.head
 
-    # An update appends, so any tag it would move still names a live commit.
+    # An update appends. So each tag that it can move still names a live commit.
     with pytest.raises(GitError, match="already names another commit"):
         _tag_snapshot(
             config.corpus,
@@ -661,11 +662,11 @@ def test_a_rebuild_repoints_its_snapshot_tag_but_update_never_does(
 
 
 def test_every_backend_builds_the_same_corpus(tmp_path: Path) -> None:
-    """The backend is how the history is written, never what it says.
+    """The backend changes how the code writes the history, never what it says.
 
-    `--backend` exists so this can be checked on the real corpus and not only
-    on fixtures: the same tools commit built twice, two different backends,
-    one head.
+    `--backend` exists so that a test on the real corpus can prove this, not
+    only a test on fixtures: the same tools commit, built two times with two
+    different backends, gives one head.
     """
 
     from jbomohi_tools.build import BACKENDS
@@ -693,12 +694,12 @@ def test_every_backend_builds_the_same_corpus(tmp_path: Path) -> None:
 
 
 def test_verify_reads_lines_the_way_the_corpus_writes_them() -> None:
-    """A Unicode line separator inside archived text is text, not a break.
+    """A Unicode line separator in archived text is text, not a line break.
 
-    A 2007 #lojban line contains U+0085. `str.splitlines` breaks there, so one
-    stored line became three, every line number after it shifted, and verify
-    called a file malformed that the projector had written correctly and had
-    validated on the way out.
+    A 2007 #lojban line contains U+0085. `str.splitlines` splits there. So one
+    stored line became three, and every line number after it moved. Then verify
+    called a file malformed, but the projector wrote it correctly and made sure
+    that it was valid on output.
     """
 
     from jbomohi_tools.build import _lf_lines
@@ -707,16 +708,16 @@ def test_verify_reads_lines_the_way_the_corpus_writes_them() -> None:
     assert len(stored.splitlines()) == 3, "the hazard this guards against"
     assert _lf_lines(stored + "\n") == [stored]
 
-    # Every other separator Python treats as a break behaves the same way.
+    # Each other separator that Python treats as a break works the same way.
     for code in (0x2028, 0x2029, 0x0B, 0x0C):
         line = "12:00:00 <nick> a" + chr(code) + "b"
         assert _lf_lines(line + "\n") == [line]
 
-    # Ordinary LF content still splits, with no phantom trailing entry.
+    # Ordinary LF content still splits, with no extra empty entry at the end.
 
-    # SPEC.md 3.4 removes mIRC control codes and NULs and nothing else, so a
-    # separator a speaker typed is text the corpus must keep. U+2028 is the
-    # other shape this takes.
+    # SPEC.md 3.4 removes mIRC control codes and NULs, and nothing else. So a
+    # separator that a speaker typed is text that the corpus must keep. U+2028
+    # is the other form of this case.
     paragraph = "12:00:00 <nick> before" + chr(0x2028) + "after"
     assert _lf_lines(paragraph + "\n") == [paragraph]
 
@@ -727,13 +728,13 @@ def test_verify_reads_lines_the_way_the_corpus_writes_them() -> None:
 def test_update_scans_the_whole_corpus_a_bounded_number_of_times(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Appending N events must not cost N scans of the corpus.
+    """An append of N events must not cost N scans of the corpus.
 
-    `commit_event` proves the worktree clean and rebuilds the index from HEAD
-    before each event, both O(files in the corpus). Appending 3,300 IRC days to
-    a 286,212-file corpus therefore ran at seven seconds a commit — six hours
-    of work the events themselves do in milliseconds. Counting the scans is the
-    stable way to assert this; timing it would be flaky.
+    Before each event, `commit_event` proves that the worktree is clean and
+    rebuilds the index from HEAD. Both steps are O(files in the corpus). So an
+    append of 3,300 IRC days to a corpus of 286,212 files ran at seven seconds
+    a commit. That was six hours for work that the events do in milliseconds.
+    A count of the scans gives a stable assertion. A timing is not reliable.
     """
 
     from jbomohi_tools import git as git_module
@@ -763,8 +764,8 @@ def test_update_scans_the_whole_corpus_a_bounded_number_of_times(
 
     assert report is not None
     assert report.events == len(appended)
-    # The exact constant is not the point; that it does not grow with the
-    # number of events is. The old path did one of each per event.
+    # The exact constant is not important. The test checks that it does not grow
+    # with the number of events. The old path did one of each for each event.
     assert scans["status"] < len(appended)
     assert scans["read-tree"] < len(appended)
     assert scans["status"] <= 6
@@ -776,12 +777,11 @@ def test_update_refreshes_the_instruction_files_with_no_new_events(
 ) -> None:
     """A template change must be able to reach main on a quiet day.
 
-    `update` returned as soon as it found no new event, and the instruction
-    files are written only by the refresh commit. So a template correction
-    could reach main only as a side effect of some source having new events;
-    with nothing to append it reported success and did nothing. A refresh is
-    the same snapshot re-rendered, so it reuses the snapshot name and mints no
-    tag.
+    `update` returned when it found no new event, and only the refresh commit
+    writes the instruction files. So a template correction was able to reach
+    main only as a side effect of new events in some source. With nothing to append,
+    `update` reported success and did nothing. A refresh is the same snapshot,
+    rendered again. So it uses the same snapshot name and mints no tag.
     """
 
     config, _commit = tools_repo(tmp_path / "repo")
@@ -805,13 +805,13 @@ def test_update_refreshes_the_instruction_files_with_no_new_events(
         "A correction made on the tools branch."
         in (config.corpus / "AGENTS.md").read_text()
     )
-    # The same snapshot, re-rendered: no new tag, and the refresh names the
-    # commit it was applied on top of rather than reusing the snapshot's id.
+    # The same snapshot, rendered again: no new tag. The refresh names the commit
+    # below it, and does not use the id of the snapshot again.
     assert git(config.corpus, "tag", "--list") == tags_before
     assert f"Source-Id: refresh@{before}" in git(
         config.corpus, "log", "-1", "--format=%B"
     )
-    # Its date is the corpus tip's, not the clock.
+    # Its date is the date of the corpus tip, not the clock time.
     assert git(config.corpus, "log", "-1", "--format=%cI") == git(
         config.corpus, "log", "-1", "--format=%cI", before
     )
@@ -824,14 +824,14 @@ def test_update_refreshes_the_instruction_files_with_no_new_events(
 def test_update_refreshes_meta_for_a_source_with_no_new_events(tmp_path: Path) -> None:
     """A projector improvement must reach a source that appended nothing.
 
-    The refresh folded `_meta` only for sources with new events, so a source
-    whose every event was already in the corpus kept whatever its metadata
-    looked like when it last gained one. That is how `_meta/irc/lojban/
-    coverage.toml` stayed two releases behind while the channels that gained
-    days were rewritten: the channel was complete, so nothing about it was new.
+    The refresh added `_meta` only for sources with new events. So if all the
+    events of a source were already in the corpus, its metadata kept the form
+    from its last new event. Because of this, `_meta/irc/lojban/coverage.toml`
+    stayed two releases behind, while the code rewrote the channels that got
+    new days. The channel was complete, so nothing about it was new.
 
-    I predicted the opposite before that run — that the tail's events would
-    carry every channel's coverage — which is why this test exists.
+    Before that run, I predicted the opposite: that the events at the end carry
+    the coverage of every channel. That is why this test exists.
     """
 
     config, _commit = tools_repo(tmp_path / "repo")
@@ -844,7 +844,7 @@ def test_update_refreshes_meta_for_a_source_with_no_new_events(tmp_path: Path) -
     build_corpus(config, {"wiki": lambda: iter((first, stale))})
     assert (config.corpus / "_meta/wiki/index.csv").read_text() == "path\nold\n"
 
-    # The same events, rendered by an improved projector: nothing to append.
+    # The same events, rendered by an improved projector. Nothing to append.
     improved = replace(
         final,
         changes={**final.changes, "_meta/wiki/index.csv": "path,note\nnew,rendered\n"},
@@ -863,11 +863,11 @@ PACIFIC = timezone(timedelta(hours=-8))
 
 
 def _mixed_sources() -> dict[str, object]:
-    """Sources whose tallies are easy to get wrong when read from the history.
+    """Sources with tallies that are easy to get wrong when read from the history.
 
-    Two IRC channels under one top-level source, an IRC day that is still
-    2000 in its own zone but already 2001 in UTC, and a pre-epoch document
-    whose commit time git clamps to 1970.
+    The first is two IRC channels under one top-level source. The second is an
+    IRC day that is still 2000 in its own zone, but already 2001 in UTC. The
+    last is a pre-epoch document, and git clamps its commit time to 1970.
     """
 
     wiki = event("rev=1", 1, "wiki/main/One.wiki")
@@ -900,8 +900,8 @@ def _mixed_sources() -> dict[str, object]:
         author=Identity.namespaced("mw.lojban.org", "tester"),
         changes={"grammars/old/notebook.txt": "text\n"},
     )
-    # The CLL shape: an exact event that also carries a publication date of
-    # its own, and a commit body above the trailers.
+    # The CLL form: an exact event that also has its own publication date, and
+    # a commit body above the trailers.
     edition = Event(
         source="cll",
         source_id="cll=1.1-2016",
@@ -932,9 +932,9 @@ def _stream_tallies(sources: dict[str, object]) -> dict[str, SourceTally]:
 def test_the_history_holds_the_tallies_the_stream_counted(tmp_path: Path) -> None:
     """`refresh` reads back from the corpus what `build` counted from the stream.
 
-    If the two ever disagree, a refresh publishes a coverage table that the
-    next update silently rewrites. Tool commits and contributed notes are in
-    the history too, and are not source events.
+    If the two disagree, a refresh publishes a coverage table, and the next
+    update rewrites it without a report. Tool commits and contributed notes are
+    also in the history, and they are not source events.
     """
 
     config, _commit = tools_repo(tmp_path / "repo")
@@ -958,8 +958,8 @@ def test_the_history_holds_the_tallies_the_stream_counted(tmp_path: Path) -> Non
     assert from_history == from_stream
     table = coverage_table(config.corpus, from_history)
     assert table == coverage_table(config.corpus, from_stream)
-    # The day that is 2000 in its own zone is 2001 in UTC, which is what git
-    # stores; and the 1960 document keeps its true year.
+    # The day that is 2000 in its own zone is 2001 in UTC, and git stores UTC.
+    # The 1960 document keeps its true year.
     assert "| `irc/` | 2 | 2001 |" in table
     assert "| `grammars/` | 1 | 1960 |" in table
     assert "`notes/`" not in table
@@ -970,10 +970,10 @@ def test_refresh_commits_what_update_commits_with_no_new_events(
 ) -> None:
     """A template change, published without the archive.
 
-    `update` projects every source to find that nothing is new, which needs
-    the archive and all the memory a projection costs. `refresh` reads the
-    corpus instead, and the commit it makes must be the one `update` would
-    have made: same tree, same message, same date, same parent.
+    `update` projects every source to find that nothing is new. That needs the
+    archive and all the memory of a projection. `refresh` reads the corpus
+    instead. Its commit must be the same commit that `update` makes: the same
+    tree, the same message, the same date, the same parent.
     """
 
     heads = {}
@@ -1011,8 +1011,8 @@ def test_refresh_changes_nothing_when_the_files_are_current(tmp_path: Path) -> N
     report = refresh_corpus(config)
     assert (report.refreshed, report.tagged, report.head) == (False, False, built.head)
 
-    # A refresh commit at the tip is not a source event either: after one, the
-    # tallies are unchanged and a second refresh has nothing to do.
+    # A refresh commit at the tip is also not a source event. After one, the
+    # tallies do not change, and a second refresh has nothing to do.
     template = config.repo_root / "tools/templates/main/README.md"
     template.write_text(template.read_text() + "\nA correction.\n")
     commit_fixture(config.repo_root, "templates: a correction")
@@ -1025,10 +1025,10 @@ def test_refresh_changes_nothing_when_the_files_are_current(tmp_path: Path) -> N
 
 
 def test_an_update_of_one_source_describes_every_source(tmp_path: Path) -> None:
-    """The coverage table is the corpus's, not the stream's.
+    """The coverage table describes the corpus, not the stream.
 
-    Counting the stream, `update irc` rendered a table with only the IRC row,
-    and a later `refresh` would have put the others back.
+    When it counted the stream, `update irc` rendered a table with only the IRC
+    row. In that case, a later `refresh` puts the other rows back.
     """
 
     config, _commit = tools_repo(tmp_path / "repo")
@@ -1065,7 +1065,7 @@ def test_refresh_refuses_a_dirty_tools_checkout(tmp_path: Path) -> None:
 
 
 def test_refresh_leaves_source_metadata_to_update(tmp_path: Path) -> None:
-    """Only the instruction files: `_meta` belongs to the projectors."""
+    """Only the instruction files change. `_meta` belongs to the projectors."""
 
     config, _commit = tools_repo(tmp_path / "repo")
     build_corpus(config, _mixed_sources())
@@ -1078,8 +1078,8 @@ def test_refresh_leaves_source_metadata_to_update(tmp_path: Path) -> None:
     changed = set(
         git(config.corpus, "diff", "--name-only", "HEAD^", "HEAD").splitlines()
     )
-    # README.md and the schema name the tools commit, so every refresh
-    # rewrites them; nothing else outside the templates may change.
+    # README.md and the schema name the tools commit, so every refresh rewrites
+    # them. No other file outside the templates is allowed to change.
     assert changed == {"AGENTS.md", "README.md", "_meta/schema.toml"}
 
 
