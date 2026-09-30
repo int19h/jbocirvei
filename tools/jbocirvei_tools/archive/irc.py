@@ -110,7 +110,7 @@ class HttpClient:
         last_error: Exception | None = None
         for attempt in range(self.attempts):
             self._pace()
-            request = Request(url, headers={"User-Agent": "jbomohi/0.1 IRC archiver"})
+            request = Request(url, headers={"User-Agent": "jbocirvei/0.1 IRC archiver"})
             try:
                 with urlopen(request, timeout=self.timeout) as response:
                     final_url = response.geturl()

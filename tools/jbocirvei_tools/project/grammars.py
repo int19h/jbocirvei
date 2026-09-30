@@ -709,7 +709,7 @@ def escape_mixed_bytes(payload: bytes, original: str) -> bytes:
         else:
             rendered.append(character)
     header = (
-        "# grammar source bytes escaped by jbomohi grammar-bytes/1 | "
+        "# grammar source bytes escaped by jbocirvei grammar-bytes/1 | "
         f"original={original}\n"
     )
     return (header + "".join(rendered)).encode()
@@ -724,7 +724,7 @@ def unescape_mixed_bytes(rendered: bytes) -> bytes:
         raise GrammarProjectError("escaped grammar source is not UTF-8") from exc
     header, separator, body = text.partition("\n")
     if not separator or not header.startswith(
-        "# grammar source bytes escaped by jbomohi grammar-bytes/1 | original="
+        "# grammar source bytes escaped by jbocirvei grammar-bytes/1 | original="
     ):
         raise GrammarProjectError("escaped grammar source has an invalid header")
     result = bytearray()

@@ -460,7 +460,7 @@ def _render_html(edition: Edition, mirror: Path) -> RenderedEdition:
             sections[section_id] = rendered + "\n"
         header = (
             f"# cll {edition.name} chapter {chapter_label} {chapter_title} | "
-            f"rendered from {edition.ref} by jbomohi {RENDERER}\n"
+            f"rendered from {edition.ref} by jbocirvei {RENDERER}\n"
         )
         chapter_slug = CHAPTER_SLUGS.get(chapter_label)
         if chapter_slug is None:
@@ -563,7 +563,7 @@ def _xml_root(document: str, path: str) -> ET.Element:
     document = document.replace("&hellip;", "&#8230;").replace("&ndash;", "&#8211;")
     document = re.sub(
         r"<(chapter|appendix)\b",
-        r'<\1 xmlns:mml="urn:jbomohi:mathml"',
+        r'<\1 xmlns:mml="urn:jbocirvei:mathml"',
         document,
         count=1,
     )
@@ -635,7 +635,7 @@ def _render_xml(edition: Edition, mirror: Path) -> RenderedEdition:
             sections[section_id] = rendered + "\n"
         header = (
             f"# cll {edition.name} chapter {chapter} {chapter_title} | "
-            f"rendered from {edition.ref} by jbomohi {RENDERER}\n"
+            f"rendered from {edition.ref} by jbocirvei {RENDERER}\n"
         )
         prefix = (
             f"A{int(raw_chapter[1:])}"

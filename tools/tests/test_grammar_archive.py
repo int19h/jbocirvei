@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from jbomohi_tools.archive.grammars import (
+from jbocirvei_tools.archive.grammars import (
     GitGrammar,
     GrammarFetchError,
     GrammarFile,
@@ -21,9 +21,9 @@ from jbomohi_tools.archive.grammars import (
     fetch_vendor_files,
     ingest_camxes_backup,
 )
-from jbomohi_tools.archive.manifest import ArchiveManifest, object_path, store_object
-from jbomohi_tools.git import Identity, commit_event
-from jbomohi_tools.project.grammars import (
+from jbocirvei_tools.archive.manifest import ArchiveManifest, object_path, store_object
+from jbocirvei_tools.git import Identity, commit_event
+from jbocirvei_tools.project.grammars import (
     GrammarProjectError,
     _unshar,
     _vendor_day_event,
@@ -131,7 +131,7 @@ def test_mixed_byte_rendering_preserves_valid_utf8_and_round_trips() -> None:
     original = b"caf\xe9 \\ literal caf\xc3\xa9\n"
     rendered = escape_mixed_bytes(original, "./test.txt")
     assert rendered.startswith(
-        b"# grammar source bytes escaped by jbomohi grammar-bytes/1 | "
+        b"# grammar source bytes escaped by jbocirvei grammar-bytes/1 | "
         b"original=./test.txt\n"
     )
     assert b"caf\\xE9 \\\\ literal caf\xc3\xa9" in rendered

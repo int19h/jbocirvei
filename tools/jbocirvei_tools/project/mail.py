@@ -51,16 +51,16 @@ SOURCE_RANKS = {
 DEFAULT_ARCHIVE_GAPS: dict[str, dict[str, str]] = {
     "lojban-list": {
         "old_lojban_list": (
-            "not fully populated; resume: jbomohi archive fetch old-lojban-list"
+            "not fully populated; resume: jbocirvei archive fetch old-lojban-list"
         ),
         "lojban_list_old": (
             "selective gap source not populated; resume only after absent Message-IDs are known: "
-            "jbomohi archive fetch mhonarc --list lojban-list-old --start 1"
+            "jbocirvei archive fetch mhonarc --list lojban-list-old --start 1"
         ),
     },
     "lojban-beginners": {
         "mhonarc_union": (
-            "not fully populated; resume: jbomohi archive fetch mhonarc "
+            "not fully populated; resume: jbocirvei archive fetch mhonarc "
             "--list lojban-beginners"
         )
     },
@@ -325,7 +325,7 @@ def reconstruct_mhonarc(payload: bytes) -> bytes:
     headers.extend(
         [
             ("Content-Type", "text/plain; charset=utf-8"),
-            ("X-Jbomohi-Manifestation", "mhonarc"),
+            ("X-jbocirvei-Manifestation", "mhonarc"),
         ]
     )
     for name, value in headers:
@@ -513,7 +513,7 @@ def parse_mail(manifestation: MailManifestation) -> ParsedMail:
     normalized_id = normalize_message_id(raw_message_id)
     had_message_id = bool(normalized_id)
     if not normalized_id:
-        normalized_id = f"{raw_sha1}@jbomohi.invalid"
+        normalized_id = f"{raw_sha1}@no-message-id.invalid"
     subject, raw_subject = _preserved_header(raw, message, "Subject")
     if not subject.strip():
         subject = "[no subject]"
@@ -531,7 +531,7 @@ def parse_mail(manifestation: MailManifestation) -> ParsedMail:
             from_address = angle_addresses[0]
             from_name = from_header.split("<", 1)[0].strip(" \"'")
     if not from_address or "@" not in from_address:
-        from_address = f"unknown-{raw_sha1[:12]}@jbomohi.invalid"
+        from_address = f"unknown-{raw_sha1[:12]}@unknown-sender.invalid"
         from_name = from_header
     (
         timestamp,
@@ -1053,7 +1053,7 @@ def _thread_key(root_id: str, subject: str) -> str:
 def _mail_filename(message: ParsedMail) -> str:
     timestamp = int(message.timestamp.timestamp())
     digest = hashlib.sha1(message.message_id.encode("utf-8")).hexdigest()[:16]
-    return f"{timestamp}.{digest}.jbomohi:2,S"
+    return f"{timestamp}.{digest}.lojban:2,S"
 
 
 def _identity(message: ParsedMail) -> Identity:
@@ -1072,7 +1072,7 @@ def _render_thread(
     lines = [
         (
             f"# mail/{list_name} thread {thread_key} | root {root_id} | "
-            f"{len(visible)} messages | rendered by jbomohi {renderer}"
+            f"{len(visible)} messages | rendered by jbocirvei {renderer}"
         )
     ]
     for index, message in enumerate(visible, 1):

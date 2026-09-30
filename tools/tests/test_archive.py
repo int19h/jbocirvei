@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from jbomohi_tools.archive import (
+from jbocirvei_tools.archive import (
     ArchiveError,
     ArchiveManifest,
     object_path,

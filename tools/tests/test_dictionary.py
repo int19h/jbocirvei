@@ -10,14 +10,14 @@ from pathlib import Path
 
 import pytest
 
-from jbomohi_tools.archive.dictionary import (
+from jbocirvei_tools.archive.dictionary import (
     DictionaryFetchError,
     FeedResponse,
     fetch_changes,
     ingest_dictionary_exports,
 )
-from jbomohi_tools.archive.manifest import ArchiveManifest, object_path
-from jbomohi_tools.project.dictionary import (
+from jbocirvei_tools.archive.manifest import ArchiveManifest, object_path
+from jbocirvei_tools.project.dictionary import (
     JBOVLASTE_COPY_COLUMNS,
     DictionaryParseError,
     RawDictionaryDump,
@@ -138,7 +138,7 @@ def test_copy_loader_rejects_schema_drift_and_missing_tables(tmp_path: Path) -> 
 
 
 def test_dictionary_dump_loads_synthetic_known_schema(tmp_path: Path) -> None:
-    from jbomohi_tools.project.dictionary import LENSISKU_COPY_COLUMNS
+    from jbocirvei_tools.project.dictionary import LENSISKU_COPY_COLUMNS
 
     dump = tmp_path / "lensisku.sql"
     dump.write_text(_dump(LENSISKU_COPY_COLUMNS, {}), encoding="utf-8")
@@ -735,7 +735,7 @@ def test_jbovlaste_diff_reports_old_only_and_text_changes_without_merging() -> N
 def test_ingest_dictionary_exports_writes_seven_internal_digest_manifests(
     tmp_path: Path,
 ) -> None:
-    from jbomohi_tools.project.dictionary import LENSISKU_COPY_COLUMNS
+    from jbocirvei_tools.project.dictionary import LENSISKU_COPY_COLUMNS
 
     export = tmp_path / "export"
     export.mkdir()
@@ -860,7 +860,7 @@ def test_a_truncated_change_message_never_ends_the_subject_in_a_space() -> None:
     after the cut. A commit subject must not end in a space.
     """
 
-    from jbomohi_tools.project.dictionary import _summary
+    from jbocirvei_tools.project.dictionary import _summary
 
     summary = _summary(
         "Periodic-table gismu assignment algorithm",

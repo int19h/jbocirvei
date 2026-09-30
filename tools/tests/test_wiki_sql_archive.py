@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from jbomohi_tools.archive.manifest import ArchiveError, ArchiveManifest, object_path
-from jbomohi_tools.archive.wiki_sql import (
+from jbocirvei_tools.archive.manifest import ArchiveError, ArchiveManifest, object_path
+from jbocirvei_tools.archive.wiki_sql import (
     WIKI_SQL_TABLES,
     ingest_wiki_sql_export,
     inspect_wiki_sql_export,

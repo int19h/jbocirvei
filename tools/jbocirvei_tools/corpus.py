@@ -1,7 +1,7 @@
 """Create and inspect the corpus repository.
 
 SPEC.md 2.2 (2026-09-15): the corpus is its own git repository at
-`JBOMOHI_CORPUS`, with its own object store. It is not a worktree of the tools
+`JBOCIRVEI_CORPUS`, with its own object store. It is not a worktree of the tools
 checkout. A worktree (a second working directory of a repository) uses the
 objects of its repository. So the whole projection (many gigabytes) went into
 the tools checkout, and the charter keeps bulk state out of that checkout.
@@ -81,7 +81,7 @@ def init_corpus(config: Config) -> tuple[CorpusStatus, bool]:
     """Create the corpus repository. A second run changes nothing.
 
     If the corpus exists, this function uses it unchanged. If not, the function
-    creates the repository at `JBOMOHI_CORPUS`, with the remote of the tools
+    creates the repository at `JBOCIRVEI_CORPUS`, with the remote of the tools
     checkout as `origin`. If that remote publishes `main`, the function fetches
     it. If not, the repository stays unborn (it has no commits), and the first
     build commits the root.

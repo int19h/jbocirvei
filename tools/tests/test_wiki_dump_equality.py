@@ -4,12 +4,12 @@ SPEC.md 3.2 defines the two wiki inputs as equal where they overlap. Each
 `revid` and `logid` that both hold must give byte-identical events. That is a
 property of the real data, not of a fixture. Thus you run these tests on
 purpose, never as part of a plain `pytest`. They read the whole wiki export,
-which takes minutes and several gigabytes. If `JBOMOHI_ARCHIVE` does not name
+which takes minutes and several gigabytes. If `JBOCIRVEI_ARCHIVE` does not name
 the archive, they skip.
 
 Run them with the archive in place:
 
-    JBOMOHI_ARCHIVE=~/lojban/archive uv run --python 3.13 pytest \\
+    JBOCIRVEI_ARCHIVE=~/lojban/archive uv run --python 3.13 pytest \\
         tools/tests/test_wiki_dump_equality.py -q
 
 The result belongs in the pull request that claims the two inputs agree.
@@ -24,14 +24,14 @@ from pathlib import Path
 
 import pytest
 
-from jbomohi_tools.project.wiki import (
+from jbocirvei_tools.project.wiki import (
     load_archive,
     load_log_archive,
     load_media_archive,
     merge_fragments,
     project,
 )
-from jbomohi_tools.project.wiki_sql import combine_inputs, load_dump_archive
+from jbocirvei_tools.project.wiki_sql import combine_inputs, load_dump_archive
 
 REVISION_FIELDS = (
     "revid",
@@ -85,7 +85,7 @@ def archive_root() -> Path | None:
     passes only because there is no archive at all.
     """
 
-    configured = os.environ.get("JBOMOHI_ARCHIVE")
+    configured = os.environ.get("JBOCIRVEI_ARCHIVE")
     return Path(configured).expanduser() if configured else None
 
 
@@ -93,7 +93,7 @@ def archive_root() -> Path | None:
 def inputs() -> tuple[object, list, list, list]:
     root = archive_root()
     if root is None:
-        pytest.skip("set JBOMOHI_ARCHIVE to run the export/API equality proof")
+        pytest.skip("set JBOCIRVEI_ARCHIVE to run the export/API equality proof")
     if not (root / "manifests" / "wiki" / "db-export").is_dir():
         pytest.skip(f"no ingested wiki SQL export under {root}")
     if not (root / "manifests" / "wiki" / "revisions").is_dir():

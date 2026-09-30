@@ -27,7 +27,7 @@ jobs:
         run: uv run pytest
       - name: Checks of lint, format, compilation and whitespace
         run: |
-          uv run ruff check tools/jbomohi_tools tools/tests
-          uv run ruff format --check tools/jbomohi_tools tools/tests
-          uv run python -m compileall -q tools/jbomohi_tools
+          uv run ruff check tools/jbocirvei_tools tools/tests
+          uv run ruff format --check tools/jbocirvei_tools tools/tests
+          uv run python -m compileall -q tools/jbocirvei_tools
           git diff --check

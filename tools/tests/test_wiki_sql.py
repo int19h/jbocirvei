@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from jbomohi_tools.project.wiki_sql import (
+from jbocirvei_tools.project.wiki_sql import (
     SQL_COLUMNS,
     WikiSqlParseError,
     load_wiki_sql_dump,
@@ -81,7 +81,7 @@ class DumpBuilder:
         if all_tables:
             # `archive.wiki_sql` makes sure that every requested table is there.
             # That list is wider than the set of tables that the projector reads.
-            from jbomohi_tools.archive.wiki_sql import WIKI_SQL_TABLES
+            from jbocirvei_tools.archive.wiki_sql import WIKI_SQL_TABLES
 
             for table in sorted(WIKI_SQL_TABLES - set(SQL_COLUMNS)):
                 body.extend(f"CREATE TABLE `{table}` (\n".encode())
@@ -141,7 +141,7 @@ def load(builder: DumpBuilder, tmp_path: Path):
 def _text_gap_rows(dump, revid: int) -> list[str]:
     """The `text unresolvable` reasons that the projector records for one revision."""
 
-    from jbomohi_tools.project.wiki import project
+    from jbocirvei_tools.project.wiki import project
 
     events = list(
         project(dump.fragments, dump.logs, (), [g.as_row() for g in dump.gaps])
@@ -794,7 +794,7 @@ def deleted_page_dump(tmp_path: Path) -> DumpBuilder:
 
 
 def test_backfill_rebuilds_a_deleted_lineage_and_its_end(tmp_path: Path) -> None:
-    from jbomohi_tools.project.wiki_sql import archived_fragments
+    from jbocirvei_tools.project.wiki_sql import archived_fragments
 
     dump = load(deleted_page_dump(tmp_path), tmp_path)
     fragments, ended_at, unaccounted, gaps = archived_fragments(dump, live={5})
@@ -811,7 +811,7 @@ def test_backfill_rebuilds_a_deleted_lineage_and_its_end(tmp_path: Path) -> None
 def test_backfill_skips_a_lineage_whose_page_id_a_live_page_reuses(
     tmp_path: Path,
 ) -> None:
-    from jbomohi_tools.project.wiki_sql import archived_fragments
+    from jbocirvei_tools.project.wiki_sql import archived_fragments
 
     dump = load(deleted_page_dump(tmp_path), tmp_path)
     fragments, ended_at, unaccounted, gaps = archived_fragments(dump, live={5, 77})
@@ -820,7 +820,7 @@ def test_backfill_skips_a_lineage_whose_page_id_a_live_page_reuses(
 
 
 def test_backfill_records_a_lineage_no_log_accounts_for(tmp_path: Path) -> None:
-    from jbomohi_tools.project.wiki_sql import archived_fragments
+    from jbocirvei_tools.project.wiki_sql import archived_fragments
 
     builder = deleted_page_dump(tmp_path)
     # A second lineage at the same title. No other deletion is left to claim.
@@ -855,7 +855,7 @@ def test_backfill_records_a_lineage_no_log_accounts_for(tmp_path: Path) -> None:
 
 
 def test_move_redir_can_end_a_lineage_without_a_delete_log(tmp_path: Path) -> None:
-    from jbomohi_tools.project.wiki_sql import archived_fragments
+    from jbocirvei_tools.project.wiki_sql import archived_fragments
 
     builder = baseline()
     builder.add("comment", 40, 0, b"redirect", None)
@@ -907,7 +907,7 @@ def test_combine_inputs_unions_both_sources_and_refuses_disagreement(
 ) -> None:
     from dataclasses import replace
 
-    from jbomohi_tools.project.wiki_sql import combine_inputs
+    from jbocirvei_tools.project.wiki_sql import combine_inputs
 
     dump = load(deleted_page_dump(tmp_path), tmp_path)
     api_only = WikiPageFragmentStub(9, 0, "api only")
@@ -930,14 +930,14 @@ def test_combine_inputs_unions_both_sources_and_refuses_disagreement(
 
 class WikiPageFragmentStub:
     def __init__(self, pageid: int, namespace: int, title: str) -> None:
-        from jbomohi_tools.project.wiki import WikiPageFragment
+        from jbocirvei_tools.project.wiki import WikiPageFragment
 
         self.fragment = WikiPageFragment(pageid, namespace, title, False, ())
 
 
 def test_load_dump_archive_verifies_the_archived_object(tmp_path: Path) -> None:
-    from jbomohi_tools.archive.wiki_sql import ingest_wiki_sql_export
-    from jbomohi_tools.project.wiki_sql import load_dump_archive
+    from jbocirvei_tools.archive.wiki_sql import ingest_wiki_sql_export
+    from jbocirvei_tools.project.wiki_sql import load_dump_archive
 
     archive = tmp_path / "archive"
     assert load_dump_archive(archive) is None
@@ -979,7 +979,7 @@ def test_load_dump_archive_verifies_the_archived_object(tmp_path: Path) -> None:
 
 
 def test_extra_gaps_reach_the_projected_metadata(tmp_path: Path) -> None:
-    from jbomohi_tools.project.wiki import project
+    from jbocirvei_tools.project.wiki import project
 
     dump = load(baseline(), tmp_path)
     events = list(
@@ -998,7 +998,7 @@ def test_lineage_bound_is_the_last_deletion_of_a_page_id(tmp_path: Path) -> None
     hides any move into the title between the two.
     """
 
-    from jbomohi_tools.project.wiki_sql import archived_fragments
+    from jbocirvei_tools.project.wiki_sql import archived_fragments
 
     builder = baseline()
     for index, (revid, when) in enumerate(
@@ -1087,8 +1087,8 @@ def test_lineage_bound_is_the_last_deletion_of_a_page_id(tmp_path: Path) -> None
 def test_log_entry_without_an_actor_row_is_unrecorded_not_anonymous(
     tmp_path: Path,
 ) -> None:
-    from jbomohi_tools.git import Identity
-    from jbomohi_tools.project.wiki import project
+    from jbocirvei_tools.git import Identity
+    from jbocirvei_tools.project.wiki import project
 
     builder = baseline()
     # The current title of the page is the target of the move. Thus the title

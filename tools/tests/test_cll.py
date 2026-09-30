@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from jbomohi_tools.project.cll import (
+from jbocirvei_tools.project.cll import (
     CllRenderError,
     Edition,
     RenderedEdition,
@@ -89,7 +89,7 @@ def test_render_legacy_html_drops_markup_and_keeps_example_lines(
     text = next(iter(rendered.changes.values()))
     assert text.startswith(
         "# cll 1997-online-draft chapter 1 About Lojban | "
-        "rendered from fixture-ref by jbomohi cll/1\n"
+        "rendered from fixture-ref by jbocirvei cll/1\n"
     )
     assert "## 1.1 First section" in text
     assert "A paragraph split across lines .i next." in text
@@ -211,11 +211,11 @@ def test_project_emits_cumulative_metadata_and_exact_gitlinks(
         ),
     }
     monkeypatch.setattr(
-        "jbomohi_tools.project.cll.editions",
+        "jbocirvei_tools.project.cll.editions",
         lambda _archive: (tmp_path, [first, second]),
     )
     monkeypatch.setattr(
-        "jbomohi_tools.project.cll.render_edition",
+        "jbocirvei_tools.project.cll.render_edition",
         lambda item, _mirror: values[item.name],
     )
     events = list(project(tmp_path))

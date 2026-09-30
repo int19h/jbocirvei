@@ -1,4 +1,4 @@
-# jbomo'i: the Lojban historical record as a git repository
+# jbocirvei: the Lojban historical record as a git repository
 
 <!-- Generated file. Edit the template on the tools branch. -->
 
@@ -38,8 +38,8 @@ on purpose, and why.
 ## Start here
 
 ```sh
-git clone --recurse-submodules {{repo_url}} jbomohi
-cd jbomohi
+git clone --recurse-submodules {{repo_url}} jbocirvei
+cd jbocirvei
 
 # what does the record say about a word?
 rg -n "xorlo" wiki/ mail/ | head

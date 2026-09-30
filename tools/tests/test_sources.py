@@ -8,9 +8,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jbomohi_tools.archive.manifest import ArchiveManifest, store_object
-from jbomohi_tools.config import Config
-from jbomohi_tools.sources import (
+from jbocirvei_tools.archive.manifest import ArchiveManifest, store_object
+from jbocirvei_tools.config import Config
+from jbocirvei_tools.sources import (
     SourceWiringError,
     mail_events,
     mediawiki_pages_from_archive,
@@ -33,9 +33,11 @@ def test_mediawiki_pages_from_archive_supplies_tiki_mapping_input(
         title="New",
         revisions=(SimpleNamespace(content="{{BPFK Section from tiki|Old|1}}\n"),),
     )
-    monkeypatch.setattr("jbomohi_tools.sources.load_wiki_archive", lambda _: fragments)
     monkeypatch.setattr(
-        "jbomohi_tools.sources.merge_wiki_fragments",
+        "jbocirvei_tools.sources.load_wiki_archive", lambda _: fragments
+    )
+    monkeypatch.setattr(
+        "jbocirvei_tools.sources.merge_wiki_fragments",
         lambda value: [page] if value is fragments else (),
     )
     assert mediawiki_pages_from_archive(config) == {
@@ -63,25 +65,25 @@ def test_source_factories_reads_each_wiki_input_once(
     loads: list[str] = []
     seen: list[object] = []
     monkeypatch.setattr(
-        "jbomohi_tools.sources.load_wiki_archive",
+        "jbocirvei_tools.sources.load_wiki_archive",
         lambda _archive: loads.append("api") or fragments,
     )
     monkeypatch.setattr(
-        "jbomohi_tools.sources.load_dump_archive",
+        "jbocirvei_tools.sources.load_dump_archive",
         lambda _archive: loads.append("export") or None,
     )
     monkeypatch.setattr(
-        "jbomohi_tools.sources.mediawiki_pages_from_archive",
+        "jbocirvei_tools.sources.mediawiki_pages_from_archive",
         lambda _config, value: seen.append(list(value)) or {},
     )
     monkeypatch.setattr(
-        "jbomohi_tools.sources.load_wiki_log_archive", lambda _archive: ()
+        "jbocirvei_tools.sources.load_wiki_log_archive", lambda _archive: ()
     )
     monkeypatch.setattr(
-        "jbomohi_tools.sources.load_wiki_media_archive", lambda _archive: ()
+        "jbocirvei_tools.sources.load_wiki_media_archive", lambda _archive: ()
     )
     monkeypatch.setattr(
-        "jbomohi_tools.sources.wiki_events",
+        "jbocirvei_tools.sources.wiki_events",
         lambda _config, *, inputs, media: seen.append(inputs.fragments) or (),
     )
     factories = source_factories(config, ("wiki", "tiki"))
@@ -95,8 +97,8 @@ def test_source_factories_unions_the_export_with_the_crawl(
 ) -> None:
     """If the archive has an export, the wiki projector sees both inputs."""
 
-    from jbomohi_tools.project.wiki import WikiPageFragment
-    from jbomohi_tools.project.wiki_sql import WikiSqlDump
+    from jbocirvei_tools.project.wiki import WikiPageFragment
+    from jbocirvei_tools.project.wiki_sql import WikiSqlDump
 
     config = Config(
         tmp_path / "repo",
@@ -109,19 +111,19 @@ def test_source_factories_unions_the_export_with_the_crawl(
     dump = WikiSqlDump((exported,), (), (), (), {"revisions": 0})
     seen: list[object] = []
     monkeypatch.setattr(
-        "jbomohi_tools.sources.load_wiki_archive", lambda _archive: [crawled]
+        "jbocirvei_tools.sources.load_wiki_archive", lambda _archive: [crawled]
     )
     monkeypatch.setattr(
-        "jbomohi_tools.sources.load_dump_archive", lambda _archive: dump
+        "jbocirvei_tools.sources.load_dump_archive", lambda _archive: dump
     )
     monkeypatch.setattr(
-        "jbomohi_tools.sources.load_wiki_log_archive", lambda _archive: ()
+        "jbocirvei_tools.sources.load_wiki_log_archive", lambda _archive: ()
     )
     monkeypatch.setattr(
-        "jbomohi_tools.sources.load_wiki_media_archive", lambda _archive: ()
+        "jbocirvei_tools.sources.load_wiki_media_archive", lambda _archive: ()
     )
     monkeypatch.setattr(
-        "jbomohi_tools.sources.wiki_events",
+        "jbocirvei_tools.sources.wiki_events",
         lambda _config, *, inputs, media: seen.append(inputs) or (),
     )
     list(source_factories(config, ("wiki",))["wiki"]())
@@ -188,7 +190,7 @@ def test_tiki_events_reads_the_agreed_manifest_encoding(
     )
     seen: list[tuple[str, str]] = []
     monkeypatch.setattr(
-        "jbomohi_tools.sources.load_tiki_dump",
+        "jbocirvei_tools.sources.load_tiki_dump",
         lambda _path: SimpleNamespace(tables={"tiki_pages": (), "tiki_history": ()}),
     )
 
@@ -201,8 +203,8 @@ def test_tiki_events_reads_the_agreed_manifest_encoding(
         seen.append(("project", character_encoding))
         return iter(())
 
-    monkeypatch.setattr("jbomohi_tools.sources.load_tiki_users", fake_users)
-    monkeypatch.setattr("jbomohi_tools.sources.project_tiki", fake_project)
+    monkeypatch.setattr("jbocirvei_tools.sources.load_tiki_users", fake_users)
+    monkeypatch.setattr("jbocirvei_tools.sources.project_tiki", fake_project)
     assert list(tiki_events(config)) == []
     assert seen == [
         ("users", "latin1-transcoded"),
@@ -239,25 +241,28 @@ def test_mail_gap_markers_clear_only_at_named_inventory_counts(
         for number in range(2):
             (root / f"msg{number:05d}.toml").write_text("fixture\n")
 
-    monkeypatch.setattr("jbomohi_tools.sources.OLD_LOJBAN_LIST_PAGE_COUNT", 2)
-    monkeypatch.setattr("jbomohi_tools.sources.LOJBAN_BEGINNERS_MHONARC_PAGE_COUNT", 2)
+    monkeypatch.setattr("jbocirvei_tools.sources.OLD_LOJBAN_LIST_PAGE_COUNT", 2)
     monkeypatch.setattr(
-        "jbomohi_tools.sources.LOJBAN_BEGINNERS_MHONARC_KNOWN_MISSING",
+        "jbocirvei_tools.sources.LOJBAN_BEGINNERS_MHONARC_PAGE_COUNT", 2
+    )
+    monkeypatch.setattr(
+        "jbocirvei_tools.sources.LOJBAN_BEGINNERS_MHONARC_KNOWN_MISSING",
         frozenset(),
     )
-    monkeypatch.setattr("jbomohi_tools.sources.MAILDIR_LISTS", ())
-    monkeypatch.setattr("jbomohi_tools.sources.MHONARC_LISTS", ())
+    monkeypatch.setattr("jbocirvei_tools.sources.MAILDIR_LISTS", ())
+    monkeypatch.setattr("jbocirvei_tools.sources.MHONARC_LISTS", ())
     monkeypatch.setattr(
-        "jbomohi_tools.sources.load_mhonarc_manifestations", lambda *_args: iter(())
+        "jbocirvei_tools.sources.load_mhonarc_manifestations", lambda *_args: iter(())
     )
     monkeypatch.setattr(
-        "jbomohi_tools.sources.load_old_lojban_manifestations", lambda *_args: iter(())
+        "jbocirvei_tools.sources.load_old_lojban_manifestations",
+        lambda *_args: iter(()),
     )
     monkeypatch.setattr(
-        "jbomohi_tools.sources.load_mbox_manifestations", lambda *_args: iter(())
+        "jbocirvei_tools.sources.load_mbox_manifestations", lambda *_args: iter(())
     )
     monkeypatch.setattr(
-        "jbomohi_tools.sources.load_jbosnu_manifestations", lambda *_args: iter(())
+        "jbocirvei_tools.sources.load_jbosnu_manifestations", lambda *_args: iter(())
     )
     observed = {}
 
@@ -266,7 +271,7 @@ def test_mail_gap_markers_clear_only_at_named_inventory_counts(
         observed.update(archive_gaps)
         return iter(())
 
-    monkeypatch.setattr("jbomohi_tools.sources.project_mail", fake_project)
+    monkeypatch.setattr("jbocirvei_tools.sources.project_mail", fake_project)
     assert list(mail_events(config)) == []
     assert set(observed["lojban-list"]) == {"lojban_list_old"}
     assert "lojban-beginners" not in observed
@@ -290,25 +295,28 @@ def test_mail_gap_records_exact_unavailable_beginners_pages(
     for number in (0, 3):
         (beginners_root / f"msg{number:05d}.toml").write_text("fixture\n")
 
-    monkeypatch.setattr("jbomohi_tools.sources.OLD_LOJBAN_LIST_PAGE_COUNT", 0)
-    monkeypatch.setattr("jbomohi_tools.sources.LOJBAN_BEGINNERS_MHONARC_PAGE_COUNT", 4)
+    monkeypatch.setattr("jbocirvei_tools.sources.OLD_LOJBAN_LIST_PAGE_COUNT", 0)
     monkeypatch.setattr(
-        "jbomohi_tools.sources.LOJBAN_BEGINNERS_MHONARC_KNOWN_MISSING",
+        "jbocirvei_tools.sources.LOJBAN_BEGINNERS_MHONARC_PAGE_COUNT", 4
+    )
+    monkeypatch.setattr(
+        "jbocirvei_tools.sources.LOJBAN_BEGINNERS_MHONARC_KNOWN_MISSING",
         frozenset({1, 2}),
     )
-    monkeypatch.setattr("jbomohi_tools.sources.MAILDIR_LISTS", ())
-    monkeypatch.setattr("jbomohi_tools.sources.MHONARC_LISTS", ())
+    monkeypatch.setattr("jbocirvei_tools.sources.MAILDIR_LISTS", ())
+    monkeypatch.setattr("jbocirvei_tools.sources.MHONARC_LISTS", ())
     monkeypatch.setattr(
-        "jbomohi_tools.sources.load_mhonarc_manifestations", lambda *_args: iter(())
+        "jbocirvei_tools.sources.load_mhonarc_manifestations", lambda *_args: iter(())
     )
     monkeypatch.setattr(
-        "jbomohi_tools.sources.load_old_lojban_manifestations", lambda *_args: iter(())
+        "jbocirvei_tools.sources.load_old_lojban_manifestations",
+        lambda *_args: iter(()),
     )
     monkeypatch.setattr(
-        "jbomohi_tools.sources.load_mbox_manifestations", lambda *_args: iter(())
+        "jbocirvei_tools.sources.load_mbox_manifestations", lambda *_args: iter(())
     )
     monkeypatch.setattr(
-        "jbomohi_tools.sources.load_jbosnu_manifestations", lambda *_args: iter(())
+        "jbocirvei_tools.sources.load_jbosnu_manifestations", lambda *_args: iter(())
     )
     observed = {}
 
@@ -317,7 +325,7 @@ def test_mail_gap_records_exact_unavailable_beginners_pages(
         observed.update(archive_gaps)
         return iter(())
 
-    monkeypatch.setattr("jbomohi_tools.sources.project_mail", fake_project)
+    monkeypatch.setattr("jbocirvei_tools.sources.project_mail", fake_project)
     assert list(mail_events(config)) == []
     assert observed["lojban-beginners"] == {
         "mhonarc_missing_pages": (
@@ -354,17 +362,19 @@ def test_wiki_inputs_are_released_when_the_wiki_stream_ends(
 
         return stream()
 
-    monkeypatch.setattr("jbomohi_tools.sources.load_wiki_archive", lambda _root: [])
-    monkeypatch.setattr("jbomohi_tools.sources.load_dump_archive", lambda _root: None)
-    monkeypatch.setattr("jbomohi_tools.sources.load_wiki_log_archive", lambda _root: [])
+    monkeypatch.setattr("jbocirvei_tools.sources.load_wiki_archive", lambda _root: [])
+    monkeypatch.setattr("jbocirvei_tools.sources.load_dump_archive", lambda _root: None)
     monkeypatch.setattr(
-        "jbomohi_tools.sources.load_wiki_media_archive",
+        "jbocirvei_tools.sources.load_wiki_log_archive", lambda _root: []
+    )
+    monkeypatch.setattr(
+        "jbocirvei_tools.sources.load_wiki_media_archive",
         lambda _root: box.pop("media"),
     )
     monkeypatch.setattr(
-        "jbomohi_tools.sources.wiki_inputs", lambda *_a, **_k: box.pop("inputs")
+        "jbocirvei_tools.sources.wiki_inputs", lambda *_a, **_k: box.pop("inputs")
     )
-    monkeypatch.setattr("jbomohi_tools.sources.wiki_events", fake_wiki_events)
+    monkeypatch.setattr("jbocirvei_tools.sources.wiki_events", fake_wiki_events)
 
     config = Config(
         repo_root=tmp_path,

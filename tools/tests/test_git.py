@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from jbomohi_tools.git import (
+from jbocirvei_tools.git import (
     Event,
     EventError,
     GitError,
@@ -88,7 +88,7 @@ def test_commit_event_uses_the_configured_corpus_by_default(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     corpus = unborn_worktree(tmp_path)
-    monkeypatch.setenv("JBOMOHI_CORPUS", str(corpus))
+    monkeypatch.setenv("JBOCIRVEI_CORPUS", str(corpus))
     commit = commit_event(base_event())
     assert commit == git(corpus, "rev-parse", "HEAD")
 
@@ -324,7 +324,9 @@ def test_all_identity_variants_and_mail_name_normalisation() -> None:
     assert Identity.irc() == Identity(
         "irclogs", "irclogs@irc.lojban.org", "irc.lojban.org"
     )
-    assert Identity.tool() == Identity("jbomohi", "tools@jbomohi.invalid", "jbomohi")
+    assert Identity.tool() == Identity(
+        "jbocirvei", "tools@jbocirvei.invalid", "jbocirvei"
+    )
     assert Identity.contributed("Contributor", "person@example.org") == Identity(
         "Contributor", "person@example.org", "contributed"
     )
@@ -351,7 +353,7 @@ def test_maildir_cur_file_is_materialized_read_only_but_git_mode_is_portable(
     tmp_path: Path,
 ) -> None:
     corpus = unborn_worktree(tmp_path)
-    path = "mail/lojban-list/cur/946684800.0123456789abcdef.jbomohi:2,S"
+    path = "mail/lojban-list/cur/946684800.0123456789abcdef.lojban:2,S"
     event = base_event(
         source="mail/lojban-list",
         source_id="message@example.org",
@@ -535,7 +537,7 @@ def test_build_session_commits_are_identical_to_the_per_event_path(
     must not change: the same trees, the same commits, the same head.
     """
 
-    from jbomohi_tools.git import BuildCommitSession
+    from jbocirvei_tools.git import BuildCommitSession
 
     events = _sequence(12)
 
@@ -559,7 +561,7 @@ def test_build_session_commits_are_identical_to_the_per_event_path(
 
 
 def test_build_session_refuses_a_dirty_corpus(tmp_path: Path) -> None:
-    from jbomohi_tools.git import BuildCommitSession
+    from jbocirvei_tools.git import BuildCommitSession
 
     corpus = _fresh(tmp_path, "dirty")
     commit_event(base_event(), corpus)
@@ -571,7 +573,7 @@ def test_build_session_refuses_a_dirty_corpus(tmp_path: Path) -> None:
 def test_build_session_carries_submodules_and_gitlinks(tmp_path: Path) -> None:
     """The .gitmodules merge must still collect entries across session commits."""
 
-    from jbomohi_tools.git import BuildCommitSession
+    from jbocirvei_tools.git import BuildCommitSession
 
     first = base_event(
         source="cll",
@@ -610,7 +612,7 @@ def test_fast_import_history_is_identical_to_both_other_paths(tmp_path: Path) ->
     worktree that the build leaves for `verify` to read.
     """
 
-    from jbomohi_tools.git import BuildCommitSession, FastImportSession
+    from jbocirvei_tools.git import BuildCommitSession, FastImportSession
 
     events = _sequence(12)
 
@@ -642,7 +644,7 @@ def test_fast_import_history_is_identical_to_both_other_paths(tmp_path: Path) ->
 def test_fast_import_keeps_submodules_gitlinks_and_empty_trees(tmp_path: Path) -> None:
     """The .gitmodules merge, gitlink modes and events with no tree change survive."""
 
-    from jbomohi_tools.git import FastImportSession
+    from jbocirvei_tools.git import FastImportSession
 
     first = base_event(
         source="cll",
@@ -688,7 +690,7 @@ def test_fast_import_keeps_submodules_gitlinks_and_empty_trees(tmp_path: Path) -
 
 
 def test_fast_import_refuses_a_deletion_of_an_untracked_path(tmp_path: Path) -> None:
-    from jbomohi_tools.git import FastImportSession
+    from jbocirvei_tools.git import FastImportSession
 
     imported = _fresh(tmp_path, "imported")
     with (
@@ -709,7 +711,7 @@ def test_fast_import_refuses_a_deletion_of_an_untracked_path(tmp_path: Path) -> 
 def test_fast_import_continues_an_existing_history(tmp_path: Path) -> None:
     """A build starts from the deterministic root commit, not from an empty branch."""
 
-    from jbomohi_tools.git import FastImportSession
+    from jbocirvei_tools.git import FastImportSession
 
     corpus = _fresh(tmp_path, "corpus")
     root = commit_event(base_event(), corpus)
@@ -728,7 +730,7 @@ def test_fast_import_continues_an_existing_history(tmp_path: Path) -> None:
 def _three_ways(tmp_path: Path, events: tuple[Event, ...]) -> str:
     """Run one history through all three backends and return the shared head."""
 
-    from jbomohi_tools.git import BuildCommitSession, FastImportSession
+    from jbocirvei_tools.git import BuildCommitSession, FastImportSession
 
     careful = _fresh(tmp_path, "careful")
     for event in events:
@@ -818,7 +820,7 @@ def test_a_session_resuming_history_knows_its_quoted_paths(tmp_path: Path) -> No
     the session refuses a correct deletion as untracked.
     """
 
-    from jbomohi_tools.git import FastImportSession
+    from jbocirvei_tools.git import FastImportSession
 
     odd = 'mail/lojban-list/cur/caf é "quoted" name:2,S'
     corpus = _fresh(tmp_path, "corpus")

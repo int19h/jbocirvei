@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from jbomohi_tools.render import (
+from jbocirvei_tools.render import (
     RenderContext,
     SourceTally,
     coverage_table,
@@ -70,12 +70,12 @@ def test_every_projector_falls_back_to_the_untitled_placeholder() -> None:
     input, and that is the reason to pin it.
     """
 
-    from jbomohi_tools.git import UNTITLED
-    from jbomohi_tools.project.dictionary import _summary as dict_summary
-    from jbomohi_tools.project.mail import _summary as mail_summary
-    from jbomohi_tools.project.tiki import _summary as tiki_summary
-    from jbomohi_tools.project.wiki import _log_summary
-    from jbomohi_tools.project.wiki import _summary as wiki_summary
+    from jbocirvei_tools.git import UNTITLED
+    from jbocirvei_tools.project.dictionary import _summary as dict_summary
+    from jbocirvei_tools.project.mail import _summary as mail_summary
+    from jbocirvei_tools.project.tiki import _summary as tiki_summary
+    from jbocirvei_tools.project.wiki import _log_summary
+    from jbocirvei_tools.project.wiki import _summary as wiki_summary
 
     assert wiki_summary("", 1, "") == f"{UNTITLED} (rev 1)"
     assert wiki_summary("   ", 1, "note") == f"{UNTITLED} (rev 1) note"
@@ -328,7 +328,7 @@ def _templates() -> dict[str, str]:
     return {
         "AGENTS.md": (root / "AGENTS.md").read_text(encoding="utf-8"),
         "README.md": (root / "README.md").read_text(encoding="utf-8"),
-        "rules": (root / ".agents/rules/jbomohi.md").read_text(encoding="utf-8"),
+        "rules": (root / ".agents/rules/jbocirvei.md").read_text(encoding="utf-8"),
     }
 
 
@@ -377,13 +377,13 @@ def test_every_citation_example_resolves_in_the_corpus() -> None:
 
     Someone added a Tiki example with an invented version number. A sibling test
     checked only the grammar of the example. The example parsed with no error,
-    but it pointed at nothing. If JBOMOHI_CORPUS names a real corpus, this test
+    but it pointed at nothing. If JBOCIRVEI_CORPUS names a real corpus, this test
     resolves each example against it. No other check catches that fault.
     """
 
-    corpus = os.environ.get("JBOMOHI_CORPUS")
+    corpus = os.environ.get("JBOCIRVEI_CORPUS")
     if not corpus:
-        pytest.skip("set JBOMOHI_CORPUS to resolve the citation examples")
+        pytest.skip("set JBOCIRVEI_CORPUS to resolve the citation examples")
     root = Path(corpus)
     if not (root / ".git").is_dir():
         pytest.skip(f"no corpus repository at {root}")
@@ -417,9 +417,9 @@ def test_every_citation_example_resolves_in_the_corpus() -> None:
 def test_every_cited_source_id_exists_in_the_history() -> None:
     """The version that an example names must be a version in the history."""
 
-    corpus = os.environ.get("JBOMOHI_CORPUS")
+    corpus = os.environ.get("JBOCIRVEI_CORPUS")
     if not corpus:
-        pytest.skip("set JBOMOHI_CORPUS to resolve the citation examples")
+        pytest.skip("set JBOCIRVEI_CORPUS to resolve the citation examples")
     root = Path(corpus)
     if not (root / ".git").is_dir():
         pytest.skip(f"no corpus repository at {root}")
@@ -460,9 +460,9 @@ def test_every_cited_source_id_exists_in_the_history() -> None:
 
 
 def _corpus_root() -> Path:
-    corpus = os.environ.get("JBOMOHI_CORPUS")
+    corpus = os.environ.get("JBOCIRVEI_CORPUS")
     if not corpus:
-        pytest.skip("set JBOMOHI_CORPUS to check the claim against a real history")
+        pytest.skip("set JBOCIRVEI_CORPUS to check the claim against a real history")
     root = Path(corpus)
     if not (root / ".git").is_dir():
         pytest.skip(f"no corpus repository at {root}")

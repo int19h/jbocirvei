@@ -8,14 +8,14 @@ from urllib.error import URLError
 
 import pytest
 
-from jbomohi_tools.archive import verify_manifests
-from jbomohi_tools.archive.wiki import (
+from jbocirvei_tools.archive import verify_manifests
+from jbocirvei_tools.archive.wiki import (
     ApiResponse,
     WikiApiClient,
     fetch,
     query_url,
 )
-from jbomohi_tools.project.wiki import load_archive, load_media_archive, project
+from jbocirvei_tools.project.wiki import load_archive, load_media_archive, project
 
 
 def revision(revid: int, parentid: int, content: str) -> dict[str, object]:
@@ -183,7 +183,7 @@ def test_wiki_client_retries_transport_and_maxlag_failures(
             return Response(b'{"error":{"code":"maxlag","info":"busy"}}')
         return Response(b'{"query":{"statistics":{"pages":1}}}')
 
-    monkeypatch.setattr("jbomohi_tools.archive.wiki.urlopen", flaky)
+    monkeypatch.setattr("jbocirvei_tools.archive.wiki.urlopen", flaky)
     sleeps: list[float] = []
     response = WikiApiClient(
         min_interval=0,

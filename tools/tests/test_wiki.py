@@ -6,8 +6,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from jbomohi_tools.git import Identity
-from jbomohi_tools.project.wiki import (
+from jbocirvei_tools.git import Identity
+from jbocirvei_tools.project.wiki import (
     WikiLogEvent,
     WikiMedia,
     WikiPageFragment,
@@ -1287,7 +1287,7 @@ def test_wiki_coverage_reports_what_it_covers_not_only_what_it_could_not_serve()
     no longer the only thing there.
     """
 
-    from jbomohi_tools.project.wiki import _coverage_toml
+    from jbocirvei_tools.project.wiki import _coverage_toml
 
     rendered = _coverage_toml(
         (("export_revisions_without_actor_row", 2608, "no actor row"),),

@@ -46,7 +46,7 @@ from .render import (
 EventFactory = Callable[[], Iterable[Event]]
 _TRAILER = re.compile(r"^([A-Z][A-Za-z0-9-]*): (.*)$")
 _MAX_CORPUS_FILE = 100 * 1024 * 1024
-_MAILDIR_NAME = re.compile(r"[0-9]+\.[0-9a-f]{16}\.jbomohi:2,S")
+_MAILDIR_NAME = re.compile(r"[0-9]+\.[0-9a-f]{16}\.lojban:2,S")
 _IRC_HEADER = re.compile(
     r"^# irc #(?P<channel>[a-z][a-z0-9_-]*) "
     r"(?P<date>[0-9]{4}-[0-9]{2}-[0-9]{2}"
@@ -362,7 +362,7 @@ def build_corpus(
     temporary_root = config.tmp
     temporary_root.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(
-        prefix="jbomohi-build-", dir=temporary_root
+        prefix="jbocirvei-build-", dir=temporary_root
     ) as temporary:
         scratch = Path(temporary) / "main"
         run_git(

@@ -729,7 +729,7 @@ def _coverage_toml(
 
     lines = [
         "# What the wiki projection covers, and the rows one input holds that",
-        "# the other cannot serve (SPEC.md 3.2). Written by jbomohi build; do",
+        "# the other cannot serve (SPEC.md 3.2). Written by jbocirvei build; do",
         "# not edit.",
         "",
     ]

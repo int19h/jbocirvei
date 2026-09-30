@@ -4,7 +4,7 @@ import zipfile
 from dataclasses import replace
 from datetime import UTC, datetime
 
-from jbomohi_tools.project.mail import (
+from jbocirvei_tools.project.mail import (
     MailManifestation,
     RawMessage,
     _Container,
@@ -133,7 +133,7 @@ def test_project_keeps_raw_maildir_and_builds_reference_thread() -> None:
     ]
     raw_path = next(path for path in events[0].changes if "/cur/" in path)
     assert events[0].changes[raw_path] == root_raw
-    assert raw_path.endswith(".jbomohi:2,S")
+    assert raw_path.endswith(".lojban:2,S")
     thread_path = next(path for path in events[1].changes if "/threads/" in path)
     thread = events[1].changes[thread_path]
     assert isinstance(thread, str)
@@ -145,7 +145,7 @@ def test_project_keeps_raw_maildir_and_builds_reference_thread() -> None:
     assert "_meta/mail/lojban-list/messages.csv" in events[-1].changes
     assert "_meta/mail/lojban-list/coverage.toml" in events[-1].changes
     coverage = events[-1].changes["_meta/mail/lojban-list/coverage.toml"]
-    assert "jbomohi archive fetch old-lojban-list" in coverage
+    assert "jbocirvei archive fetch old-lojban-list" in coverage
     assert "--list lojban-list-old --start 1" in coverage
     assert "mail/lojban-list/new/.keep" in events[0].changes
     assert "mail/lojban-list/tmp/.keep" in events[0].changes
@@ -154,7 +154,7 @@ def test_project_keeps_raw_maildir_and_builds_reference_thread() -> None:
 def test_missing_message_id_gets_raw_hash_identity_and_window_date() -> None:
     raw = b"From: sender@example.org\r\nSubject: no id\r\n\r\nbody"
     events = list(project((manifestation(raw, order=0),)))
-    assert events[0].source_id.endswith("@jbomohi.invalid")
+    assert events[0].source_id.endswith("@no-message-id.invalid")
     assert events[0].time_confidence == "window"
     assert events[0].event_window == "2026-01-01..2026-01-01"
 
@@ -174,7 +174,7 @@ three</pre><!--X-Body-of-Message-End-->
     assert b"From: Robin <r@example.org>\r\n" in reconstructed
     assert b"Message-ID: <child@example.org>\r\n" in reconstructed
     assert b"References: <root@example.org>\r\n" in reconstructed
-    assert b"X-Jbomohi-Manifestation: mhonarc\r\n" in reconstructed
+    assert b"X-jbocirvei-Manifestation: mhonarc\r\n" in reconstructed
     assert reconstructed.endswith(b"one & two\r\nthree\r\n")
 
 

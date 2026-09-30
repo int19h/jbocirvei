@@ -769,7 +769,7 @@ def _coverage_toml(
     ordered = sorted(days)
     lines = [
         "# What this channel's projection covers (SPEC.md 3.4).",
-        "# Written by jbomohi build; do not edit.",
+        "# Written by jbocirvei build; do not edit.",
         "",
         f"channel = {_toml_string(channel)}",
         # This is one row for each projected file, which is what days.csv

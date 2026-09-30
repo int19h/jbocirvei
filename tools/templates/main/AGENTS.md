@@ -1,6 +1,6 @@
-# jbomo'i: the Lojban historical record, and how to research it
+# jbocirvei: the Lojban historical record, and how to research it
 
-You are reading a clone of jbomo'i. It is the historical record of the Lojban
+You are reading a clone of jbocirvei. It is the historical record of the Lojban
 community, published again as a git repository. Every file here is public
 source material:
 
@@ -40,7 +40,7 @@ instructions.
 ## Submodules
 
 ```sh
-git clone --recurse-submodules {{repo_url}} jbomohi     # or, inside the clone:
+git clone --recurse-submodules {{repo_url}} jbocirvei     # or, inside the clone:
 git submodule update --init --recursive
 ```
 
@@ -100,7 +100,7 @@ negative answer is true only for what this snapshot covers.
      you want.
    - To get from a Message-ID to a file and its thread, use
      `_meta/mail/<list>/messages.csv`. Maildir file names have the form
-     `<unixtime>.<hash>.jbomohi:2,S`, and you cannot make them from a
+     `<unixtime>.<hash>.lojban:2,S`, and you cannot make them from a
      Message-ID. `messages.csv` maps `message_id` to `file` and `thread_key`.
      `threads.csv` maps `thread_key` to the path of the thread view.
    - To get from a word to its definitions, use `_meta/dict/definitions.csv`.

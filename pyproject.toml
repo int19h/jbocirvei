@@ -1,13 +1,13 @@
 [project]
-name = "jbomohi-tools"
+name = "jbocirvei-tools"
 version = "0.1.0"
-description = "Deterministic tools for building the jbomo'i historical corpus"
+description = "Deterministic tools for building the jbocirvei historical corpus"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = []
 
 [project.scripts]
-jbomohi = "jbomohi_tools.cli:main"
+jbocirvei = "jbocirvei_tools.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.9.17,<0.10.0"]
@@ -24,18 +24,18 @@ module-root = "tools"
 
 [tool.ruff.lint.isort]
 # The set of imports that are ours must not depend on the directory where ruff
-# runs. From the repository root, ruff finds no `jbomohi_tools` package in its
+# runs. From the repository root, ruff finds no `jbocirvei_tools` package in its
 # src root, so it sorts the package beside pytest. From `tools/`, the package is
 # first-party and needs its own block. So the same tree is clean from one
 # directory and gives 21 I001 errors from the other. This setting names the
 # package, so ruff gives the same result from every directory.
-known-first-party = ["jbomohi_tools"]
+known-first-party = ["jbocirvei_tools"]
 
 [tool.pytest.ini_options]
 testpaths = ["tools/tests"]
 addopts = "-ra"
 
-[tool.jbomohi.dependency-reasons]
+[tool.jbocirvei.dependency-reasons]
 uv-build = "The PEP 517 build backend. uv needs it to install the tools package and the CLI."
 pytest = "The test runner. The M0 acceptance command `uv run pytest` needs it."
 ruff = "Static lint and format checks. The CI contract of the tools branch needs them."

@@ -259,7 +259,7 @@ class Identity:
         if self.namespace in {"mail", "contributed", "upstream", "document"}:
             return
         fixed = {
-            "jbomohi": ("jbomohi", "tools@jbomohi.invalid"),
+            "jbocirvei": ("jbocirvei", "tools@jbocirvei.invalid"),
             "irc.lojban.org": ("irclogs", "irclogs@irc.lojban.org"),
         }
         if self.namespace in fixed:
@@ -307,7 +307,7 @@ class Identity:
         if host in {
             "mail",
             "contributed",
-            "jbomohi",
+            "jbocirvei",
             "irc.lojban.org",
         } or host.startswith(("anonymous:", "unrecorded:")):
             raise EventError(f"reserved identity namespace: {host!r}")
@@ -391,7 +391,7 @@ class Identity:
 
     @classmethod
     def tool(cls) -> Identity:
-        return cls("jbomohi", "tools@jbomohi.invalid", "jbomohi")
+        return cls("jbocirvei", "tools@jbocirvei.invalid", "jbocirvei")
 
     @classmethod
     def contributed(cls, name: str, email: str) -> Identity:
@@ -483,7 +483,7 @@ class Event:
                 "dates before the epoch require Time-Confidence: pre-epoch"
             )
         if self.event == "refresh" and self.author != Identity.tool():
-            raise EventError("refresh commits must use the jbomohi tool identity")
+            raise EventError("refresh commits must use the jbocirvei tool identity")
         changed = {_safe_repo_path(path).as_posix() for path in self.changes}
         if ".gitmodules" in changed:
             raise EventError(
@@ -615,7 +615,7 @@ def _render_submodules(submodules: Mapping[str, str]) -> bytes:
 
 def _resolve_corpus(corpus: Path | None) -> Path:
     actual_corpus = corpus or Path(
-        os.environ.get("JBOMOHI_CORPUS", Path.home() / "lojban" / "corpus")
+        os.environ.get("JBOCIRVEI_CORPUS", Path.home() / "lojban" / "corpus")
     )
     resolved = actual_corpus.expanduser().resolve()
     if not (resolved / ".git").exists():
