@@ -8,10 +8,10 @@ from pathlib import Path
 
 import pytest
 
-from jbomohi_tools.build import build_corpus
-from jbomohi_tools.config import Config
-from jbomohi_tools.corpus import CorpusError, corpus_status, init_corpus
-from jbomohi_tools.render import RenderContext, commit_instruction_refresh
+from jbocirvei_tools.build import build_corpus
+from jbocirvei_tools.config import Config
+from jbocirvei_tools.corpus import CorpusError, corpus_status, init_corpus
+from jbocirvei_tools.render import RenderContext, commit_instruction_refresh
 
 HERE = Path(__file__).resolve()
 WORKSPACE = HERE.parents[2]
@@ -77,11 +77,11 @@ def publish_main(source: Path, seed: Path) -> str:
         "-m",
         "published root",
         env={
-            "GIT_AUTHOR_NAME": "jbomohi",
-            "GIT_AUTHOR_EMAIL": "tools@jbomohi.invalid",
+            "GIT_AUTHOR_NAME": "jbocirvei",
+            "GIT_AUTHOR_EMAIL": "tools@jbocirvei.invalid",
             "GIT_AUTHOR_DATE": "1970-01-01T00:00:00+00:00",
-            "GIT_COMMITTER_NAME": "jbomohi",
-            "GIT_COMMITTER_EMAIL": "tools@jbomohi.invalid",
+            "GIT_COMMITTER_NAME": "jbocirvei",
+            "GIT_COMMITTER_EMAIL": "tools@jbocirvei.invalid",
             "GIT_COMMITTER_DATE": "1970-01-01T00:00:00+00:00",
         },
     )
@@ -142,7 +142,7 @@ def test_clean_clone_gets_one_rendered_epoch_root(tmp_path: Path) -> None:
     )
     assert (
         git(config.corpus, "show", "-s", "--format=%an <%ae>", root)
-        == "jbomohi <tools@jbomohi.invalid>"
+        == "jbocirvei <tools@jbocirvei.invalid>"
     )
     message = git(config.corpus, "show", "-s", "--format=%B", root)
     assert "Source: meta" in message
@@ -152,7 +152,7 @@ def test_clean_clone_gets_one_rendered_epoch_root(tmp_path: Path) -> None:
 
     files = set(git(config.corpus, "ls-tree", "-r", "--name-only", root).splitlines())
     assert files == {
-        ".agents/rules/jbomohi.md",
+        ".agents/rules/jbocirvei.md",
         ".gitignore",
         "AGENTS.md",
         "CLAUDE.md",

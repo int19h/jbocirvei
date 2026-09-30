@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from jbomohi_tools.archive.manifest import ArchiveError, ArchiveManifest, object_path
-from jbomohi_tools.archive.tiki import ingest_tiki_export
-from jbomohi_tools.project.tiki import (
+from jbocirvei_tools.archive.manifest import ArchiveError, ArchiveManifest, object_path
+from jbocirvei_tools.archive.tiki import ingest_tiki_export
+from jbocirvei_tools.project.tiki import (
     RawTikiDump,
     TikiParseError,
     TikiUsers,
@@ -526,13 +526,15 @@ def test_ingest_tiki_export_writes_three_operator_export_manifests(
         }
     )
     users = TikiUsers(frozenset({"alice"}), {"alice": "Alice"})
-    monkeypatch.setattr("jbomohi_tools.archive.tiki.load_tiki_dump", lambda _path: data)
     monkeypatch.setattr(
-        "jbomohi_tools.archive.tiki.load_tiki_users",
+        "jbocirvei_tools.archive.tiki.load_tiki_dump", lambda _path: data
+    )
+    monkeypatch.setattr(
+        "jbocirvei_tools.archive.tiki.load_tiki_users",
         lambda *_args, **_kwargs: users,
     )
     monkeypatch.setattr(
-        "jbomohi_tools.archive.tiki.project",
+        "jbocirvei_tools.archive.tiki.project",
         lambda *_args, **_kwargs: iter((object(), object())),
     )
     archive = tmp_path / "archive"
@@ -615,13 +617,15 @@ def test_content_manifest_note_states_what_the_export_actually_is(
         }
     )
     users = TikiUsers(frozenset({"alice"}), {"alice": "Alice"})
-    monkeypatch.setattr("jbomohi_tools.archive.tiki.load_tiki_dump", lambda _path: data)
     monkeypatch.setattr(
-        "jbomohi_tools.archive.tiki.load_tiki_users",
+        "jbocirvei_tools.archive.tiki.load_tiki_dump", lambda _path: data
+    )
+    monkeypatch.setattr(
+        "jbocirvei_tools.archive.tiki.load_tiki_users",
         lambda *_args, **_kwargs: users,
     )
     monkeypatch.setattr(
-        "jbomohi_tools.archive.tiki.project", lambda *_args, **_kwargs: iter(())
+        "jbocirvei_tools.archive.tiki.project", lambda *_args, **_kwargs: iter(())
     )
 
     def content_note(archive: Path, encoding: str) -> str:
@@ -654,7 +658,7 @@ def test_stored_mojibake_is_recognised_by_definition_not_by_spelling() -> None:
     repair, and the coverage file only counts them.
     """
 
-    from jbomohi_tools.project.tiki import looks_like_stored_mojibake
+    from jbocirvei_tools.project.tiki import looks_like_stored_mojibake
 
     # Real text, stored as its UTF-8 bytes and read back as latin-1.
     for original in ("caf\u00e9", "\u201cquoted\u201d", "na\u00efve"):

@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from jbomohi_tools.archive.cll import CllFetchError, fetch
-from jbomohi_tools.archive.manifest import ArchiveManifest, object_path
+from jbocirvei_tools.archive.cll import CllFetchError, fetch
+from jbocirvei_tools.archive.manifest import ArchiveManifest, object_path
 
 
 def git(cwd: Path, *args: str) -> str:

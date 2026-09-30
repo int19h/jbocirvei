@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from jbomohi_tools.project.rcs import RcsParseError, parse
+from jbocirvei_tools.project.rcs import RcsParseError, parse
 
 FIXTURE = b"""head 1.2;
 access;

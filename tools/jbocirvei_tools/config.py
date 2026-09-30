@@ -61,15 +61,15 @@ class Config:
         root = repo_root.resolve() if repo_root else _repo_root(current)
         local_root = Path.home() / "lojban"
         corpus = _configured_path(
-            env.get("JBOMOHI_CORPUS"), local_root / "corpus", current
+            env.get("JBOCIRVEI_CORPUS"), local_root / "corpus", current
         )
         archive = _configured_path(
-            env.get("JBOMOHI_ARCHIVE"), local_root / "archive", current
+            env.get("JBOCIRVEI_ARCHIVE"), local_root / "archive", current
         )
         temporary = _configured_path(
-            env.get("JBOMOHI_TMP"), local_root / "tmp", current
+            env.get("JBOCIRVEI_TMP"), local_root / "tmp", current
         )
-        _require_outside_checkout(corpus, root, "JBOMOHI_CORPUS")
-        _require_outside_checkout(archive, root, "JBOMOHI_ARCHIVE")
-        _require_outside_checkout(temporary, root, "JBOMOHI_TMP")
+        _require_outside_checkout(corpus, root, "JBOCIRVEI_CORPUS")
+        _require_outside_checkout(archive, root, "JBOCIRVEI_ARCHIVE")
+        _require_outside_checkout(temporary, root, "JBOCIRVEI_TMP")
         return cls(repo_root=root, corpus=corpus, archive=archive, tmp=temporary)

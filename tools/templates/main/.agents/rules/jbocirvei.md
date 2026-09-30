@@ -1,9 +1,9 @@
 ---
 trigger: always_on
-description: jbomo'i, the Lojban historical record as a git repository, and how to research it
+description: jbocirvei, the Lojban historical record as a git repository, and how to research it
 ---
 
-This workspace is a clone of jbomo'i. jbomo'i is the historical record of the
+This workspace is a clone of jbocirvei. jbocirvei is the historical record of the
 Lojban community, published again as a git repository. Each commit is one
 event from a source.
 

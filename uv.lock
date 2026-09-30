@@ -21,7 +21,7 @@ wheels = [
 ]
 
 [[package]]
-name = "jbomohi-tools"
+name = "jbocirvei-tools"
 version = "0.1.0"
 source = { editable = "." }
 

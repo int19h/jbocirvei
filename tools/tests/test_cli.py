@@ -4,9 +4,9 @@ import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
-from jbomohi_tools.archive.irc import FetchReport
-from jbomohi_tools.archive.wiki import FetchReport as WikiFetchReport
-from jbomohi_tools.cli import main, parser
+from jbocirvei_tools.archive.irc import FetchReport
+from jbocirvei_tools.archive.wiki import FetchReport as WikiFetchReport
+from jbocirvei_tools.cli import main, parser
 
 
 def test_complete_command_skeleton_is_registered() -> None:
@@ -29,7 +29,7 @@ def test_complete_command_skeleton_is_registered() -> None:
 def test_unimplemented_command_is_explicit(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
-        "jbomohi_tools.cli.Config.from_env",
+        "jbocirvei_tools.cli.Config.from_env",
         lambda: object(),
     )
     assert main(["notes", "lint"]) == 2
@@ -39,13 +39,13 @@ def test_build_update_verify_cli_wiring(monkeypatch, tmp_path: Path, capsys) -> 
     config = SimpleNamespace(corpus=tmp_path / "corpus")
     factories = {"wiki": lambda: iter(())}
     calls: list[tuple[str, object]] = []
-    monkeypatch.setattr("jbomohi_tools.cli.Config.from_env", lambda: config)
+    monkeypatch.setattr("jbocirvei_tools.cli.Config.from_env", lambda: config)
     monkeypatch.setattr(
-        "jbomohi_tools.cli.source_factories",
+        "jbocirvei_tools.cli.source_factories",
         lambda _config, names: calls.append(("sources", names)) or factories,
     )
     monkeypatch.setattr(
-        "jbomohi_tools.cli.build_corpus",
+        "jbocirvei_tools.cli.build_corpus",
         lambda _config, sources, *, until, backend: (
             calls.append(("build", (sources, until, backend)))
             or SimpleNamespace(
@@ -62,7 +62,7 @@ def test_build_update_verify_cli_wiring(monkeypatch, tmp_path: Path, capsys) -> 
     assert main(["build", "--sources", "wiki", "--until", "2000-01-01"]) == 1
 
     monkeypatch.setattr(
-        "jbomohi_tools.cli.update_corpus",
+        "jbocirvei_tools.cli.update_corpus",
         lambda _config, sources: SimpleNamespace(
             head="b" * 40,
             commits=6,
@@ -82,7 +82,7 @@ def test_build_update_verify_cli_wiring(monkeypatch, tmp_path: Path, capsys) -> 
     # `refresh` projects nothing, so it must not resolve any source factory.
     calls.clear()
     monkeypatch.setattr(
-        "jbomohi_tools.cli.refresh_corpus",
+        "jbocirvei_tools.cli.refresh_corpus",
         lambda _config: SimpleNamespace(
             head="c" * 40, commits=7, snapshot="snapshot/y", refreshed=True
         ),
@@ -97,13 +97,13 @@ def test_build_update_verify_cli_wiring(monkeypatch, tmp_path: Path, capsys) -> 
     # refresh fails, the local corpus is current, and a second run must push it.
     pushes: list[str] = []
     monkeypatch.setattr(
-        "jbomohi_tools.cli.refresh_corpus",
+        "jbocirvei_tools.cli.refresh_corpus",
         lambda _config: SimpleNamespace(
             head="c" * 40, commits=7, snapshot="snapshot/y", refreshed=False
         ),
     )
     monkeypatch.setattr(
-        "jbomohi_tools.cli.push_main_ranges",
+        "jbocirvei_tools.cli.push_main_ranges",
         lambda _corpus, snapshot: (
             pushes.append(snapshot)
             or SimpleNamespace(main_updates=1, snapshot=snapshot)
@@ -114,7 +114,7 @@ def test_build_update_verify_cli_wiring(monkeypatch, tmp_path: Path, capsys) -> 
     assert "push: main_updates=1" in capsys.readouterr().out
 
     monkeypatch.setattr(
-        "jbomohi_tools.cli.verify_corpus",
+        "jbocirvei_tools.cli.verify_corpus",
         lambda _corpus: SimpleNamespace(
             commits=6, files=10, sources=2, csv_indexes=1, mail_messages=3
         ),
@@ -142,7 +142,7 @@ def test_corpus_status_runs_through_real_cli_configuration(
         capture_output=True,
         text=True,
     )
-    monkeypatch.setenv("JBOMOHI_CORPUS", str(corpus))
+    monkeypatch.setenv("JBOCIRVEI_CORPUS", str(corpus))
     monkeypatch.chdir(root)
     assert main(["corpus", "status"]) == 0
     assert f"corpus ready: path={corpus}" in capsys.readouterr().out
@@ -156,8 +156,8 @@ def test_archive_fetch_irc_cli_wiring(monkeypatch, tmp_path: Path, capsys) -> No
         calls.append((archive, since))
         return FetchReport((tmp_path / "manifest.toml",), 3, 4)
 
-    monkeypatch.setattr("jbomohi_tools.cli.Config.from_env", lambda: config)
-    monkeypatch.setattr("jbomohi_tools.cli.fetch_irc", fake_fetch)
+    monkeypatch.setattr("jbocirvei_tools.cli.Config.from_env", lambda: config)
+    monkeypatch.setattr("jbocirvei_tools.cli.fetch_irc", fake_fetch)
     assert main(["archive", "fetch", "irc", "--since", "2026-01-01"]) == 0
     assert calls == [(tmp_path, "2026-01-01")]
     assert "downloaded=3 reused=4 manifests=1" in capsys.readouterr().out
@@ -165,9 +165,9 @@ def test_archive_fetch_irc_cli_wiring(monkeypatch, tmp_path: Path, capsys) -> No
 
 def test_archive_fetch_cll_cli_wiring(monkeypatch, tmp_path: Path, capsys) -> None:
     config = type("Config", (), {"archive": tmp_path})()
-    monkeypatch.setattr("jbomohi_tools.cli.Config.from_env", lambda: config)
+    monkeypatch.setattr("jbocirvei_tools.cli.Config.from_env", lambda: config)
     monkeypatch.setattr(
-        "jbomohi_tools.cli.fetch_cll",
+        "jbocirvei_tools.cli.fetch_cll",
         lambda archive: type(
             "Report",
             (),
@@ -184,9 +184,9 @@ def test_archive_fetch_cll_cli_wiring(monkeypatch, tmp_path: Path, capsys) -> No
 
 def test_archive_fetch_grammars_cli_wiring(monkeypatch, tmp_path: Path, capsys) -> None:
     config = type("Config", (), {"archive": tmp_path})()
-    monkeypatch.setattr("jbomohi_tools.cli.Config.from_env", lambda: config)
+    monkeypatch.setattr("jbocirvei_tools.cli.Config.from_env", lambda: config)
     monkeypatch.setattr(
-        "jbomohi_tools.cli.fetch_grammars",
+        "jbocirvei_tools.cli.fetch_grammars",
         lambda _archive, **_kwargs: type(
             "Report",
             (),
@@ -213,8 +213,8 @@ def test_archive_fetch_dictionary_cli_wiring(
         calls.append((archive, since))
         return SimpleNamespace(pages=2, changes=3, next_cursor="next")
 
-    monkeypatch.setattr("jbomohi_tools.cli.Config.from_env", lambda: config)
-    monkeypatch.setattr("jbomohi_tools.cli.fetch_changes", fake_fetch)
+    monkeypatch.setattr("jbocirvei_tools.cli.Config.from_env", lambda: config)
+    monkeypatch.setattr("jbocirvei_tools.cli.fetch_changes", fake_fetch)
     assert main(["archive", "fetch", "dict", "--since", "cursor"]) == 0
     assert calls == [(tmp_path, "cursor")]
     assert "pages=2 changes=3 next_cursor=next" in capsys.readouterr().out
@@ -231,8 +231,8 @@ def test_archive_fetch_mail_cli_wiring(monkeypatch, tmp_path: Path, capsys) -> N
             manifest=tmp_path / "manifest.toml",
         )
 
-    monkeypatch.setattr("jbomohi_tools.cli.Config.from_env", lambda: config)
-    monkeypatch.setattr("jbomohi_tools.cli.fetch_maildir_zip", fake_fetch)
+    monkeypatch.setattr("jbocirvei_tools.cli.Config.from_env", lambda: config)
+    monkeypatch.setattr("jbocirvei_tools.cli.fetch_maildir_zip", fake_fetch)
     assert main(["archive", "fetch", "mail", "--list", "lojban-list"]) == 0
     assert calls == [(tmp_path, "lojban-list")]
     assert "list=lojban-list messages=7" in capsys.readouterr().out
@@ -252,8 +252,8 @@ def test_archive_fetch_mhonarc_cli_wiring(monkeypatch, tmp_path: Path, capsys) -
         calls.append((archive, list_name, start, max_pages))
         return SimpleNamespace(downloaded=2, reused=3, next_missing=5)
 
-    monkeypatch.setattr("jbomohi_tools.cli.Config.from_env", lambda: config)
-    monkeypatch.setattr("jbomohi_tools.cli.fetch_mhonarc", fake_fetch)
+    monkeypatch.setattr("jbocirvei_tools.cli.Config.from_env", lambda: config)
+    monkeypatch.setattr("jbocirvei_tools.cli.fetch_mhonarc", fake_fetch)
     assert (
         main(
             [
@@ -284,8 +284,8 @@ def test_archive_fetch_jbosnu_raw_cli_wiring(
         calls.append(archive)
         return SimpleNamespace(messages=489, manifest=tmp_path / "manifest.toml")
 
-    monkeypatch.setattr("jbomohi_tools.cli.Config.from_env", lambda: config)
-    monkeypatch.setattr("jbomohi_tools.cli.fetch_jbosnu_raw", fake_fetch)
+    monkeypatch.setattr("jbocirvei_tools.cli.Config.from_env", lambda: config)
+    monkeypatch.setattr("jbocirvei_tools.cli.fetch_jbosnu_raw", fake_fetch)
     assert main(["archive", "fetch", "jbosnu-raw"]) == 0
     assert calls == [tmp_path]
     assert "messages=489" in capsys.readouterr().out
@@ -301,8 +301,8 @@ def test_archive_fetch_old_lojban_list_cli_wiring(
         calls.append((archive, max_pages))
         return SimpleNamespace(downloaded=2, reused=3, next_missing=6)
 
-    monkeypatch.setattr("jbomohi_tools.cli.Config.from_env", lambda: config)
-    monkeypatch.setattr("jbomohi_tools.cli.fetch_old_lojban_list", fake_fetch)
+    monkeypatch.setattr("jbocirvei_tools.cli.Config.from_env", lambda: config)
+    monkeypatch.setattr("jbocirvei_tools.cli.fetch_old_lojban_list", fake_fetch)
     assert main(["archive", "fetch", "old-lojban-list", "--max-pages", "5"]) == 0
     assert calls == [(tmp_path, 5)]
     assert "downloaded=2 reused=3 next_missing=6" in capsys.readouterr().out
@@ -318,8 +318,8 @@ def test_archive_fetch_mail_mboxes_cli_wiring(
         calls.append(archive)
         return SimpleNamespace(downloaded=2, reused=3, messages=100)
 
-    monkeypatch.setattr("jbomohi_tools.cli.Config.from_env", lambda: config)
-    monkeypatch.setattr("jbomohi_tools.cli.fetch_mail_mboxes", fake_fetch)
+    monkeypatch.setattr("jbocirvei_tools.cli.Config.from_env", lambda: config)
+    monkeypatch.setattr("jbocirvei_tools.cli.fetch_mail_mboxes", fake_fetch)
     assert main(["archive", "fetch", "mail-mboxes"]) == 0
     assert calls == [tmp_path]
     assert "downloaded=2 reused=3 messages=100" in capsys.readouterr().out
@@ -339,8 +339,8 @@ def test_archive_ingest_dictionary_cli_wiring(
             jbovlaste=SimpleNamespace(tables={"valsi": (1,)}),
         )
 
-    monkeypatch.setattr("jbomohi_tools.cli.Config.from_env", lambda: config)
-    monkeypatch.setattr("jbomohi_tools.cli.ingest_dictionary_exports", fake_ingest)
+    monkeypatch.setattr("jbocirvei_tools.cli.Config.from_env", lambda: config)
+    monkeypatch.setattr("jbocirvei_tools.cli.ingest_dictionary_exports", fake_ingest)
     assert (
         main(
             [
@@ -376,8 +376,8 @@ def test_archive_ingest_tiki_cli_wiring(monkeypatch, tmp_path: Path, capsys) -> 
             events=3,
         )
 
-    monkeypatch.setattr("jbomohi_tools.cli.Config.from_env", lambda: config)
-    monkeypatch.setattr("jbomohi_tools.cli.ingest_tiki_export", fake_ingest)
+    monkeypatch.setattr("jbocirvei_tools.cli.Config.from_env", lambda: config)
+    monkeypatch.setattr("jbocirvei_tools.cli.ingest_tiki_export", fake_ingest)
     assert (
         main(
             [
@@ -416,8 +416,8 @@ def test_archive_ingest_wiki_cli_wiring(monkeypatch, tmp_path: Path, capsys) -> 
             ),
         )
 
-    monkeypatch.setattr("jbomohi_tools.cli.Config.from_env", lambda: config)
-    monkeypatch.setattr("jbomohi_tools.cli.ingest_wiki_sql_export", fake_ingest)
+    monkeypatch.setattr("jbocirvei_tools.cli.Config.from_env", lambda: config)
+    monkeypatch.setattr("jbocirvei_tools.cli.ingest_wiki_sql_export", fake_ingest)
     assert (
         main(
             [
@@ -450,18 +450,20 @@ def test_cll_render_commits_missing_editions_through_the_target(
         type("Event", (), {"source_id": "cll=three"})(),
     ]
     committed = []
-    monkeypatch.setattr("jbomohi_tools.cli.Config.from_env", lambda: config)
+    monkeypatch.setattr("jbocirvei_tools.cli.Config.from_env", lambda: config)
     monkeypatch.setattr(
-        "jbomohi_tools.cli.init_corpus",
+        "jbocirvei_tools.cli.init_corpus",
         lambda _config: (type("Status", (), {"head": "a" * 40})(), False),
     )
-    monkeypatch.setattr("jbomohi_tools.cli.project_cll", lambda _archive: iter(events))
     monkeypatch.setattr(
-        "jbomohi_tools.cli.git_output",
+        "jbocirvei_tools.cli.project_cll", lambda _archive: iter(events)
+    )
+    monkeypatch.setattr(
+        "jbocirvei_tools.cli.git_output",
         lambda _corpus, _args: "Source-Id: cll=one\n",
     )
     monkeypatch.setattr(
-        "jbomohi_tools.cli.commit_event",
+        "jbocirvei_tools.cli.commit_event",
         lambda event, corpus: committed.append((event.source_id, corpus)) or "b" * 40,
     )
     assert main(["cll", "render", "two"]) == 0
@@ -479,14 +481,16 @@ def test_cll_render_rejects_a_nonprefix_existing_edition(
         type("Event", (), {"source_id": "cll=one"})(),
         type("Event", (), {"source_id": "cll=two"})(),
     ]
-    monkeypatch.setattr("jbomohi_tools.cli.Config.from_env", lambda: config)
+    monkeypatch.setattr("jbocirvei_tools.cli.Config.from_env", lambda: config)
     monkeypatch.setattr(
-        "jbomohi_tools.cli.init_corpus",
+        "jbocirvei_tools.cli.init_corpus",
         lambda _config: (type("Status", (), {"head": "a" * 40})(), False),
     )
-    monkeypatch.setattr("jbomohi_tools.cli.project_cll", lambda _archive: iter(events))
     monkeypatch.setattr(
-        "jbomohi_tools.cli.git_output",
+        "jbocirvei_tools.cli.project_cll", lambda _archive: iter(events)
+    )
+    monkeypatch.setattr(
+        "jbocirvei_tools.cli.git_output",
         lambda _corpus, _args: "Source-Id: cll=two\n",
     )
     assert main(["cll", "render", "two"]) == 1
@@ -500,8 +504,8 @@ def test_archive_fetch_wiki_cli_wiring(monkeypatch, tmp_path: Path, capsys) -> N
         calls.append((archive, since))
         return WikiFetchReport((tmp_path / "manifest.toml",), 2, 3, 4, 5, 6)
 
-    monkeypatch.setattr("jbomohi_tools.cli.Config.from_env", lambda: config)
-    monkeypatch.setattr("jbomohi_tools.cli.fetch_wiki", fake_fetch)
+    monkeypatch.setattr("jbocirvei_tools.cli.Config.from_env", lambda: config)
+    monkeypatch.setattr("jbocirvei_tools.cli.fetch_wiki", fake_fetch)
     assert main(["archive", "fetch", "wiki", "--since", "2026-01-01T00:00:00Z"]) == 0
     assert calls == [(tmp_path, "2026-01-01T00:00:00Z")]
     assert (

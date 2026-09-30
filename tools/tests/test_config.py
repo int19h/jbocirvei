@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from jbomohi_tools.config import Config, ConfigError
+from jbocirvei_tools.config import Config, ConfigError
 
 
 def test_paths_resolve_from_environment(tmp_path: Path) -> None:
@@ -16,9 +16,9 @@ def test_paths_resolve_from_environment(tmp_path: Path) -> None:
         cwd=work,
         repo_root=root,
         environ={
-            "JBOMOHI_CORPUS": "../../projection",
-            "JBOMOHI_ARCHIVE": "../../objects",
-            "JBOMOHI_TMP": "../../scratch",
+            "JBOCIRVEI_CORPUS": "../../projection",
+            "JBOCIRVEI_ARCHIVE": "../../objects",
+            "JBOCIRVEI_TMP": "../../scratch",
         },
     )
     assert config.corpus == (root.parent / "projection").resolve()
@@ -36,7 +36,7 @@ def test_default_bulk_paths_live_under_the_home_lojban_directory(
 
 
 @pytest.mark.parametrize(
-    "variable", ("JBOMOHI_CORPUS", "JBOMOHI_ARCHIVE", "JBOMOHI_TMP")
+    "variable", ("JBOCIRVEI_CORPUS", "JBOCIRVEI_ARCHIVE", "JBOCIRVEI_TMP")
 )
 @pytest.mark.parametrize("suffix", ("", "bulk"))
 def test_bulk_paths_must_be_outside_the_tools_checkout(

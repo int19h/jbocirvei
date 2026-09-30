@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from jbomohi_tools.git import Identity, commit_event
-from jbomohi_tools.project.irc import (
+from jbocirvei_tools.git import Identity, commit_event
+from jbocirvei_tools.project.irc import (
     IrcAmendment,
     IrcParseError,
     SourceObject,
@@ -492,7 +492,7 @@ def test_coverage_distinguishes_a_short_record_from_a_short_fetch() -> None:
     ended looked the same.
     """
 
-    from jbomohi_tools.project.irc import ChannelArchive, _coverage_toml
+    from jbocirvei_tools.project.irc import ChannelArchive, _coverage_toml
 
     units = [
         _unit("lojban", "2022-07-30"),
@@ -553,7 +553,7 @@ def test_coverage_counts_days_recorded_absent_separately() -> None:
 
     from datetime import date as _date
 
-    from jbomohi_tools.project.irc import ChannelArchive, _coverage_toml
+    from jbocirvei_tools.project.irc import ChannelArchive, _coverage_toml
 
     units = [_unit("lojban", "2015-05-01"), _unit("lojban", "2015-05-03")]
     rendered = _coverage_toml(
@@ -571,7 +571,7 @@ def _unit(channel: str, day: str):
 
     from datetime import datetime as _dt
 
-    from jbomohi_tools.project.irc import IrcUnit as _IrcUnit
+    from jbocirvei_tools.project.irc import IrcUnit as _IrcUnit
 
     return _IrcUnit(
         channel=channel,
@@ -597,7 +597,7 @@ def test_a_day_is_read_from_either_spelling_of_a_file_name() -> None:
     one spelling of it. The whole build failed on this one file out of 2,611.
     """
 
-    from jbomohi_tools.project.irc import _day_from_filename
+    from jbocirvei_tools.project.irc import _day_from_filename
 
     assert _day_from_filename("2015_06_02.txt") == date(2015, 6, 2)
     assert _day_from_filename("2004_04_08-14_29.txt") == date(2004, 4, 8)
@@ -670,7 +670,7 @@ def test_coverage_refuses_to_size_a_gap_a_partial_walk_cannot_size() -> None:
     partial as the count of what the fetch took.
     """
 
-    from jbomohi_tools.project.irc import ChannelArchive, _coverage_toml
+    from jbocirvei_tools.project.irc import ChannelArchive, _coverage_toml
 
     units = [_unit("jbosnu", "2013-09-04"), _unit("jbosnu", "2013-09-05")]
     partial = _coverage_toml(

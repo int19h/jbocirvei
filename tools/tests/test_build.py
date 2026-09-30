@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from jbomohi_tools.archive.manifest import ArchiveManifest
-from jbomohi_tools.build import (
+from jbocirvei_tools.archive.manifest import ArchiveManifest
+from jbocirvei_tools.build import (
     _archive_manifest_changes,
     _tag_snapshot,
     build_corpus,
@@ -21,10 +21,10 @@ from jbomohi_tools.build import (
     update_corpus,
     verify_corpus,
 )
-from jbomohi_tools.config import Config
-from jbomohi_tools.corpus import CorpusError
-from jbomohi_tools.git import Event, EventError, GitError, Identity, commit_event
-from jbomohi_tools.render import SourceTally, corpus_tallies, coverage_table
+from jbocirvei_tools.config import Config
+from jbocirvei_tools.corpus import CorpusError
+from jbocirvei_tools.git import Event, EventError, GitError, Identity, commit_event
+from jbocirvei_tools.render import SourceTally, corpus_tallies, coverage_table
 
 HERE = Path(__file__).resolve()
 WORKSPACE = HERE.parents[2]
@@ -382,7 +382,7 @@ def test_verify_checks_mail_mode_and_thread_membership(tmp_path: Path) -> None:
     config, _commit = tools_repo(tmp_path / "repo")
     build_corpus(config, {})
     root = maildir_fixture(config.corpus)
-    name = "946684800.0123456789abcdef.jbomohi:2,S"
+    name = "946684800.0123456789abcdef.lojban:2,S"
     message_path = root / "cur" / name
     message_path.write_text("message\n")
     thread = root / "threads/2000/key.txt"
@@ -438,7 +438,7 @@ def test_audit_events_reports_every_invalid_event(tmp_path: Path) -> None:
     costs a full build. Two such problems were found in this slow way.
     """
 
-    from jbomohi_tools.build import audit_events
+    from jbocirvei_tools.build import audit_events
 
     def event(source_id: str, **changes: object) -> Event:
         fields: dict[str, object] = {
@@ -669,7 +669,7 @@ def test_every_backend_builds_the_same_corpus(tmp_path: Path) -> None:
     different backends, gives one head.
     """
 
-    from jbomohi_tools.build import BACKENDS
+    from jbocirvei_tools.build import BACKENDS
 
     events = {
         "wiki": lambda: iter(
@@ -702,7 +702,7 @@ def test_verify_reads_lines_the_way_the_corpus_writes_them() -> None:
     that it was valid on output.
     """
 
-    from jbomohi_tools.build import _lf_lines
+    from jbocirvei_tools.build import _lf_lines
 
     stored = "11:27:45 <Tene> do mo " + chr(0x85) + "9#" + chr(0x85) + "9"
     assert len(stored.splitlines()) == 3, "the hazard this guards against"
@@ -737,7 +737,7 @@ def test_update_scans_the_whole_corpus_a_bounded_number_of_times(
     A count of the scans gives a stable assertion. A timing is not reliable.
     """
 
-    from jbomohi_tools import git as git_module
+    from jbocirvei_tools import git as git_module
 
     config, _commit = tools_repo(tmp_path / "repo")
     base = event("rev=1", 1, "wiki/main/One.wiki")

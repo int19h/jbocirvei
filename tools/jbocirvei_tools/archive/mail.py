@@ -170,7 +170,7 @@ class MailHttpClient:
         for attempt in range(self.attempts):
             try:
                 request = Request(
-                    url, headers={"User-Agent": "jbomohi/0.1 mail archiver"}
+                    url, headers={"User-Agent": "jbocirvei/0.1 mail archiver"}
                 )
                 with urlopen(request, timeout=self.timeout) as response:
                     final_url = response.geturl()
@@ -243,7 +243,9 @@ class MhonarcHttpClient:
         last_error: Exception | None = None
         for attempt in range(self.attempts):
             self._pace()
-            request = Request(url, headers={"User-Agent": "jbomohi/0.1 mail archiver"})
+            request = Request(
+                url, headers={"User-Agent": "jbocirvei/0.1 mail archiver"}
+            )
             try:
                 with urlopen(request, timeout=self.timeout) as response:
                     if response.geturl() != url:
@@ -309,7 +311,7 @@ class NumberedRawHttpClient:
             self._last_request = self.monotonic()
             try:
                 request = Request(
-                    url, headers={"User-Agent": "jbomohi/0.1 mail archiver"}
+                    url, headers={"User-Agent": "jbocirvei/0.1 mail archiver"}
                 )
                 with urlopen(request, timeout=self.timeout) as response:
                     if response.geturl() != url:
@@ -378,7 +380,7 @@ class FilesHttpClient:
             self._last_request = self.monotonic()
             try:
                 request = Request(
-                    url, headers={"User-Agent": "jbomohi/0.1 mail archiver"}
+                    url, headers={"User-Agent": "jbocirvei/0.1 mail archiver"}
                 )
                 with urlopen(request, timeout=self.timeout) as response:
                     if response.geturl() != url:

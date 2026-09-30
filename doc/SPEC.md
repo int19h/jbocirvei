@@ -1,4 +1,4 @@
-# jbomo'i: functional specification
+# jbocirvei: functional specification
 
 Status: draft v0.9, 2026-08-27. Authors: Fable (spec) and the human partner (adjudication, that is, the final decisions). Implementer: Codex. The git history of this file and the GitHub issues of this repository record the changes. Issue #61 summarizes the deferred v0.1 material: indexes, a librarian service, and Discord, web and MCP interfaces. That material is out of scope.
 
@@ -63,7 +63,7 @@ The repository has two branches, and they have no shared history. No one ever me
 | `main` | the corpus projection (§3): data, `_meta/`, and the instruction files that the tools render from `tools/templates/main/` | for end users |
 | `tools` | tooling (`tools/`), documentation (`doc/`), templates, CI | for maintainers |
 
-The first commit of `main` is the root commit. It contains `_meta/schema.toml` and the rendered instruction files (`README.md`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.agents/rules/jbomohi.md`, `.gitignore`). Its date is `1970-01-01T00:00:00Z`, the Unix epoch. Git cannot represent earlier dates. So this date is the earliest possible date, and it differs from the date of every source event. Every later commit is one of these:
+The first commit of `main` is the root commit. It contains `_meta/schema.toml` and the rendered instruction files (`README.md`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.agents/rules/jbocirvei.md`, `.gitignore`). Its date is `1970-01-01T00:00:00Z`, the Unix epoch. Git cannot represent earlier dates. So this date is the earliest possible date, and it differs from the date of every source event. Every later commit is one of these:
 
 - A source event.
 - A refresh of the instruction files or of `_meta`.
@@ -73,7 +73,7 @@ The first `build` discards the current `main` (a single `.gitignore` commit). It
 
 ### 2.2 Working layout (maintainers)
 
-Maintainers check out `tools` at the repository root. The corpus is a separate git repository, with its own object store, at `JBOMOHI_CORPUS`. The command `jbomohi corpus init` creates it:
+Maintainers check out `tools` at the repository root. The corpus is a separate git repository, with its own object store, at `JBOCIRVEI_CORPUS`. The command `jbocirvei corpus init` creates it:
 
 - If the remote has a `main` branch, the command clones it.
 - If not, the command creates an empty repository. The first `build` then installs its `main`.
@@ -90,15 +90,15 @@ The tools use the corpus repository as follows:
 
 Bulk local state never lives under the checkout (decided 2026-09-14). The reason is this: the checkout can be on a filesystem where the cost is per file, not per byte. The corpus is exactly a tree of many tiny files. The locations are these:
 
-- The corpus repository is at `JBOMOHI_CORPUS` (default `~/lojban/corpus`).
-- The archive is at `JBOMOHI_ARCHIVE` (default `~/lojban/archive`).
-- Every scratch directory that the tools create is under `JBOMOHI_TMP` (default `~/lojban/tmp`). Examples are build scratch repositories, extracted Maildirs and temporary downloads.
+- The corpus repository is at `JBOCIRVEI_CORPUS` (default `~/lojban/corpus`).
+- The archive is at `JBOCIRVEI_ARCHIVE` (default `~/lojban/archive`).
+- Every scratch directory that the tools create is under `JBOCIRVEI_TMP` (default `~/lojban/tmp`). Examples are build scratch repositories, extracted Maildirs and temporary downloads.
 
 The paths `./corpus/`, `./tmp/` and `./.venv/` stay gitignored, but only for legacy state and editor state. Tools MUST NOT write bulk data there.
 
 ### 2.3 Raw archive tier
 
-The tools never commit downloads in their original form. This applies to downloaded dumps, zips, API responses, scraped pages and database dumps. They live in an archive directory (`JBOMOHI_ARCHIVE`, default `~/lojban/archive`) as immutable, content-addressed objects. A content-addressed object is stored under the hash of its bytes. Each object has a manifest, that is, a record that describes the object. A manifest has these fields: `{source, kind, origin, fetched_at, sha256, bytes, coverage {from, to, counts}, notes}`.
+The tools never commit downloads in their original form. This applies to downloaded dumps, zips, API responses, scraped pages and database dumps. They live in an archive directory (`JBOCIRVEI_ARCHIVE`, default `~/lojban/archive`) as immutable, content-addressed objects. A content-addressed object is stored under the hash of its bytes. Each object has a manifest, that is, a record that describes the object. A manifest has these fields: `{source, kind, origin, fetched_at, sha256, bytes, coverage {from, to, counts}, notes}`.
 
 The manifests are tracked on `main:_meta/archive/`. So anyone with the same objects can reproduce the projection. Some kinds produce one manifest for each fetched page or message (`mhonarc-page`, `numbered-rfc822`). For these kinds, the branch tracks one consolidated TOML file for each list and kind, and not tens of thousands of files. This file is `_meta/archive/mail/<list>/<kind>.toml`. It is an array of tables with the same fields, in the order of origin. The archive directory keeps the manifest of each single object (decided 2026-09-14).
 
@@ -151,7 +151,7 @@ It is forbidden to batch several events into one commit. The only exception is t
   | IP-only (logged-out) edits on the wiki or Tiki | the IP literal, exactly as the site itself publishes it in page histories and in `User talk:<IP>` titles | `<ip>@<host>`, which is the public attribution that the site itself gives. The hidden IP columns (`rc_ip`, `ip_changes`, `cu_*`, Tiki `*.ip`/`user_ip`) are never exported or projected (§6). |
   | suppressed or revision-deleted usernames (`rev_deleted` user bit) | `anonymous` | `anonymous@<host>` |
   | IRC day files (many speakers) | `irclogs` | `irclogs@irc.lojban.org` |
-  | tool-generated commits (renderings, vote batches, refreshes) | `jbomohi` | `tools@jbomohi.invalid` |
+  | tool-generated commits (renderings, vote batches, refreshes) | `jbocirvei` | `tools@jbocirvei.invalid` |
   | contributed notes or attestations | the git identity of the contributor | as the contributor configured it |
 
   Projected file metadata and indexes use usernames verbatim, with case preserved. Git identity names cannot preserve `<`, `>`, or leading or trailing dots. So these characters are percent-encoded in git identity names. `%` is encoded first, to keep the mapping injective. An injective mapping never maps two different inputs to the same output. Characters that an email local part does not allow, including leading or trailing dots, are also percent-encoded. This encoding affects only git metadata, and never the canonical source spelling in files. The `.invalid` and `*.lojban.org` placeholders are not deliverable addresses, and `main:README.md` says so.
@@ -202,7 +202,7 @@ A `fast-import` build leaves poor deltas, and `git gc` keeps them (≈ 5.1 GiB).
 
 Each push is limited to 2 GB. So the initial push is done in commit ranges, step by step (`git push origin <sha>:refs/heads/main`).
 
-If mail alone exceeds the budget, the raw mail tier moves to a companion repository (`jbomohi-mail`). Then `main` keeps the thread views.
+If mail alone exceeds the budget, the raw mail tier moves to a companion repository (`jbocirvei-mail`). Then `main` keeps the thread views.
 
 Decided at M1 (2026-09-16): mail stays in `main`, and there is no companion repository. Revisit this decision in two cases only: someone adds a source with a size comparable to mail, or the repository admits media.
 
@@ -217,7 +217,7 @@ Decided at M1 (2026-09-16): mail stays in `main`, and there is no companion repo
 The corpus has this layout:
 
 ```
-README.md AGENTS.md CLAUDE.md GEMINI.md .agents/rules/jbomohi.md .gitignore   rendered from tools/templates/main/
+README.md AGENTS.md CLAUDE.md GEMINI.md .agents/rules/jbocirvei.md .gitignore   rendered from tools/templates/main/
 _meta/          schema, archive manifests, coverage, CSV indexes (§3.9)
 wiki/<ns>/      MediaWiki pages, raw wikitext, full history (§3.2)
 tiki/           pre-2013 Tiki wiki pages with history (§3.2.5)
@@ -244,7 +244,7 @@ Mixed-encoding originals (decided 2026-09-14). The bytes of some raw-fidelity fi
 - Valid UTF-8 sequences stay as they are.
 - Every literal backslash becomes `\\`.
 - Every other invalid byte becomes `\xHH`.
-- Line 1 is `# <source> source bytes escaped by jbomohi <escaper>/<version> | original=<archive member>`.
+- Line 1 is `# <source> source bytes escaped by jbocirvei <escaper>/<version> | original=<archive member>`.
 
 The archive object keeps the original bytes. The provenance row records the escaper. This is the only permitted deviation from byte-exactness. It never applies where one encoding is known (Tiki, §3.2.5(c)).
 
@@ -319,7 +319,7 @@ This section was restored 2026-09-14, after an accidental deletion at 859c7a8. I
 Some sources are themselves under version control elsewhere, for example the CLL DocBook, and the grammars and parsers (§3.6, §3.10). Each such source comes in by exactly one of three mechanisms:
 
 - Submodule. If the source lives in a git repository, it comes in as a submodule. A submodule is a pointer from one git repository to a commit of another.
-  - The tools never hold a checkout of the source under the `tools` branch. Instead, `jbomohi archive fetch <source>` keeps a bare mirror at `<archive>/git/<name>.git`. The mirror has a `git-mirror` manifest, and its coverage lists the scoped refs and their peeled commits (§3.6(a)). The projection is a pure function of that mirror. A pure function uses only its input, and it changes nothing else.
+  - The tools never hold a checkout of the source under the `tools` branch. Instead, `jbocirvei archive fetch <source>` keeps a bare mirror at `<archive>/git/<name>.git`. The mirror has a `git-mirror` manifest, and its coverage lists the scoped refs and their peeled commits (§3.6(a)). The projection is a pure function of that mirror. A pure function uses only its input, and it changes nothing else.
   - On `main`, the source is a gitlink at `<dir>/src`. If a project has several histories, each gitlink is at a named subdirectory instead. A gitlink is a tree entry that points to a commit of another repository. It is written as an `Event` gitlink change (mode `160000`, §3.6(b)).
   - The upstream URL is declared on the event (`Event.submodules = {path: url}`, paired with the gitlink). It is also recorded in `_meta/<source>/upstream.toml` (`url, default_branch, pinned_commit, pinned_at, first_commit_date, licence`).
   - The upstream history is *theirs*, and it is not replayed into `main`.
@@ -350,7 +350,7 @@ Sometimes a file-only artifact later turns out to have a surviving repository. T
 
 #### Sources
 
-The initial import comes from a full SQL dump of the MediaWiki database. The site operator supplies the dump. Passwords, emails, tokens, and other private tables and columns are removed before the dump leaves the server. The loader refuses the tables in `FORBIDDEN_WIKI_TABLES` in `tools/jbomohi_tools/archive/wiki_sql.py`.
+The initial import comes from a full SQL dump of the MediaWiki database. The site operator supplies the dump. Passwords, emails, tokens, and other private tables and columns are removed before the dump leaves the server. The loader refuses the tables in `FORBIDDEN_WIKI_TABLES` in `tools/jbocirvei_tools/archive/wiki_sql.py`.
 
 Later updates come from `https://mw.lojban.org/api.php`, with these parameters:
 
@@ -395,7 +395,7 @@ The projector obeys the revision-deletion bits (`rev_deleted`). The dump does no
 - A suppressed username becomes `anonymous`. The IP address of a logged-out editor is not suppressed. MediaWiki publishes it, and the projection also publishes it.
 - `_meta/wiki/gaps.csv` lists such revisions.
 
-`tools/jbomohi_tools/project/wiki_sql.py` implements the joins that only the dump needs: `revision_actor_temp`, `revision_comment_temp`, MCR `slots → content → text`, `old_flags` decoding, and external-store clusters. The loader MUST produce the same events from the dump and from the API for any overlapping range.
+`tools/jbocirvei_tools/project/wiki_sql.py` implements the joins that only the dump needs: `revision_actor_temp`, `revision_comment_temp`, MCR `slots → content → text`, `old_flags` decoding, and external-store clusters. The loader MUST produce the same events from the dump and from the API for any overlapping range.
 
 That requirement is defined as follows (2026-09-15, from the reconciliation of the 2026-09-15 export against the 2026-09-14 API crawl):
 
@@ -543,7 +543,7 @@ The whole mail corpus comes from four physical archives. Everything else is a de
 - Tier 2, MHonArc crawl. This tier is only for the lists that have no `lists-plain` counterpart: `announce, bpfk-announce, dracyselkei, jbofongri, jboske, jbosnu, lojban_story, pod` (about 5.7k pages).
   - The crawler fetches `msgNNNNN.html` by number, from 0 until it gets a 404, because the indexes are incomplete.
   - The crawler sends at most 2 requests per second.
-  - The tools reconstruct each page into an RFC 822 message. The headers come from the `<!--X-Message-Id/X-Reference-->` comments and from the rendered header block. The body comes from the rendered text. Each such message carries `X-Jbomohi-Manifestation: mhonarc`.
+  - The tools reconstruct each page into an RFC 822 message. The headers come from the `<!--X-Message-Id/X-Reference-->` comments and from the rendered header block. The body comes from the rendered text. Each such message carries `X-jbocirvei-Manifestation: mhonarc`.
 - Tier 3, gap-fill:
   - `lists/lojban-beginners/msg*.html` (20,910 pages). The Maildir of this list has only 16,623 files, and neither set contains all of the other. So the tools take the union.
   - `lists/lojban-list-old/`, only for Message-IDs that are absent from Tier 1.
@@ -572,16 +572,18 @@ Threading uses `References` (all of them, in order), with `In-Reply-To` as the f
 #### Layout
 
 ```
-mail/<list>/cur/<unixtime>.<sha1(message-id)[:16]>.jbomohi:2,S   raw RFC 822, byte-exact, mode 0444
+mail/<list>/cur/<unixtime>.<sha1(message-id)[:16]>.lojban:2,S   raw RFC 822, byte-exact, mode 0444
 mail/<list>/new/  mail/<list>/tmp/                                 present, empty (.keep)
 mail/<list>/threads/<YYYY>/<thread-key>.txt                        rendered thread view
 ```
+
+The host part of every file name is the fixed word `lojban`. Mail citations contain these paths, so the name of the project never goes into them. The same rule applies to every identifier that the tools invent for a citation.
 
 This is a real Maildir, and mutt, notmuch and mu can read it. Each file is created in `cur/` with the Seen flag, so mail readers do not rename it. `<thread-key>` is 12 hex characters of SHA-1(root Message-ID), then `-`, then `slug(normalised subject)`. The whole key is at most 60 characters.
 
 #### Thread view
 
-Line 1 of a thread view is `# mail/<list> thread <thread-key> | root <Message-ID> | <n> messages | rendered by jbomohi <renderer>`. Then each message has the line `=== <n> | <ISO date> | <From> | <Message-ID> | <maildir file>`, followed by the decoded `text/plain` body, verbatim. An HTML-only message is converted deterministically, and its entry line is marked `[html]`. The messages are in JWZ order, the threading order of the algorithm by Jamie Zawinski. That order uses References/In-Reply-To, with a subject fallback for orphans.
+Line 1 of a thread view is `# mail/<list> thread <thread-key> | root <Message-ID> | <n> messages | rendered by jbocirvei <renderer>`. Then each message has the line `=== <n> | <ISO date> | <From> | <Message-ID> | <maildir file>`, followed by the decoded `text/plain` body, verbatim. An HTML-only message is converted deterministically, and its entry line is marked `[html]`. The messages are in JWZ order, the threading order of the algorithm by Jamie Zawinski. That order uses References/In-Reply-To, with a subject fallback for orphans.
 
 Subject fallback (decided 2026-09-14). The subject fallback applies only to an orphan: a message with neither `References` nor `In-Reply-To`. It joins the orphan only to the most recent thread that meets all of these conditions:
 
@@ -593,7 +595,7 @@ Otherwise, the orphan starts its own thread. Roots that carry references are nev
 
 #### Events
 
-Each unique message is one commit. The Message-ID is normalized as above. If the Message-ID is missing, the id is `sha1(raw)@jbomohi.invalid`.
+Each unique message is one commit. The Message-ID is normalized as above. If the Message-ID is missing, the id is `sha1(raw)@no-message-id.invalid`. If the `From:` header has no usable address, the author address is `unknown-<sha1(raw)[:12]>@unknown-sender.invalid`.
 
 - Author: `From:`, verbatim.
 - Date: the first usable value of these three:
@@ -711,7 +713,7 @@ A separate export of the jbovlaste database can still arrive. If it does, it is 
 
 So any divergence from before the migration is visible. Someone can adjudicate it later, and the tools do not merge it silently. Event-Windows are computed from Lensisku alone.
 
-Private tables and columns are removed before the dump leaves the server. They include passwords, emails, sessions, private messages, payments, `users.votesize` and the vote rows of each voter. The loader refuses the tables in `FORBIDDEN_DATA_TABLES` in `tools/jbomohi_tools/project/dictionary.py`.
+Private tables and columns are removed before the dump leaves the server. They include passwords, emails, sessions, private messages, payments, `users.votesize` and the vote rows of each voter. The loader refuses the tables in `FORBIDDEN_DATA_TABLES` in `tools/jbocirvei_tools/project/dictionary.py`.
 
 Later updates come from the public cursor feed `GET /api/jbovlaste/changes`. The feed has the types `valsi, definition, comment, wiki`, and it carries `definition_versions` ids and inline diffs. This feed is the only update path, because the version and history endpoints require a token.
 
@@ -765,7 +767,7 @@ The front matter of a definition uses `+++` lines. Its fields are `id, word, lan
 | `comment` | `comments` ⋈ `threads` (post-V81 JSONB: subject + text blocks, `header` block dropped) | comment author | `time` (exact) | `comment=<commentId>` |
 | example added | `example` | author | `time` (exact). Appended to the `## Examples` of the target definition. If `definitionid = 0` (word-level), appended to `examples.md` | `example=<exampleId>` |
 | etymology added/edited | `etymology` | author | `time` (exact, but edits in place → `window`) | `etymology=<etymologyId>` |
-| score change | the difference in the vote sum from dump to dump, or from feed to feed | `jbomohi` | the later dump or feed date, with `Event-Window` | `score=<definitionId>@<date>` |
+| score change | the difference in the vote sum from dump to dump, or from feed to feed | `jbocirvei` | the later dump or feed date, with `Event-Window` | `score=<definitionId>@<date>` |
 | jbovlaste wiki page version | `pages` | page author | `pages.time` (exact) | `jvspage=<pagename>@<version>` |
 
 A definition can be present in an earlier dump and absent later, or the feed can give it a deleted `status`. In both cases, the definition is deleted. It becomes `Event: deleted`, and the last state of the file keeps `status = "deleted"`. Rows that `officialdata` authored are ordinary events. The feed hides them, but the dump does not.
@@ -819,7 +821,7 @@ Nobody can recover the printed 1.0 from the repository. If someone makes a scan 
 
 #### Source checkout, gitlink and dates (decided 2026-09-14)
 
-(a) The tools never hold a CLL checkout inside the `tools` branch. Instead, `jbomohi archive fetch cll` keeps a bare mirror of the fork in the archive, at `<archive>/git/cll.git`. The manifest of the mirror has the kind `git-mirror`. Its coverage lists every ref in scope with its peeled commit. The renderer is a pure function of that mirror (§4.3). A ref in the frozen edition table can peel to a different commit than the one that the manifest recorded. If it does, the renderer fails closed.
+(a) The tools never hold a CLL checkout inside the `tools` branch. Instead, `jbocirvei archive fetch cll` keeps a bare mirror of the fork in the archive, at `<archive>/git/cll.git`. The manifest of the mirror has the kind `git-mirror`. Its coverage lists every ref in scope with its peeled commit. The renderer is a pure function of that mirror (§4.3). A ref in the frozen edition table can peel to a different commit than the one that the manifest recorded. If it does, the renderer fails closed.
 
 (b) `Event` gains gitlink changes. A gitlink change has the git mode `160000`, and the tools write it with `update-index --cacheinfo`. Each gitlink change is paired with `Event.submodules = {path: url}`. The file `main:.gitmodules` is shared state that `commit_event` owns. A projector never owns it. (Amended 2026-09-14: the CLL pin events and the grammar pin events mix together in time order.) For each event, `commit_event` does these steps:
 
@@ -841,7 +843,7 @@ The file `_meta/cll/editions.csv` holds the edition table, with the refs, the pe
 
 #### Rendering
 
-Line 1 of a rendering is `# cll <edition> chapter <n> <title> | rendered from <ref> by jbomohi <renderer version>`. The body follows these rules:
+Line 1 of a rendering is `# cll <edition> chapter <n> <title> | rendered from <ref> by jbocirvei <renderer version>`. The body follows these rules:
 
 - Each section starts with `## <n>.<m> <title>`. The numbers are stable across editions.
 - Appendix chapters keep the labels of the source, `A1`, `A2` and `A3`, as `<n>`.
@@ -852,7 +854,7 @@ Line 1 of a rendering is `# cll <edition> chapter <n> <title> | rendered from <r
 
 Each edition rendering is one commit:
 
-- `Event: render`, with the author `jbomohi`.
+- `Event: render`, with the author `jbocirvei`.
 - The commit date is the committer date of the peeled source commit of the edition. `Source-Date` follows the paragraph above.
 - `Source-Id: cll=<edition>`.
 - `Renderer:`.
@@ -878,7 +880,7 @@ The file `who/relays.toml` documents the patterns of bridges. A bridge is a bot 
 
 Someone can learn later that A = B. That fact becomes a new attestation. The attestation carries the date of that discovery, and it cites the evidence. Nothing earlier is rewritten. So a reader must combine the attestations for each question.
 
-Tools MAY propose attestations (`jbomohi who propose`) into `who/proposed.csv`. The proposals come from heuristics over signatures, over "X (nick)" mentions, and over user pages. A human promotes a proposal. Every promoted row is an ordinary commit (`Source: who`, `Event: contributed`).
+Tools MAY propose attestations (`jbocirvei who propose`) into `who/proposed.csv`. The proposals come from heuristics over signatures, over "X (nick)" mentions, and over user pages. A human promotes a proposal. Every promoted row is an ordinary commit (`Source: who`, `Event: contributed`).
 
 ### 3.8 Notes (`notes/`)
 
@@ -890,7 +892,7 @@ Notes are research conclusions that humans or harness sessions contribute. The p
 - `## Open`.
 - `## Trace`.
 
-Every claim in a note cites primary units. A note is never itself cited as evidence. It is a map to the evidence. `jbomohi notes lint` makes sure that the front matter is valid, and it resolves every citation.
+Every claim in a note cites primary units. A note is never itself cited as evidence. It is a map to the evidence. `jbocirvei notes lint` makes sure that the front matter is valid, and it resolves every citation.
 
 Notes and attestations are contributed content. People commit them to `main` directly, or through a pull request. Each one is one commit:
 
@@ -954,7 +956,7 @@ The file `_meta/llg/files.csv` mirrors the listing of the file server.
 
 ### 3.10 Grammars and parsers (`grammars/`)
 
-Every formal grammar and every parser implementation of Lojban is part of the record. The source table in `tools/jbomohi_tools/archive/grammars.py` is the inventory of sources, with their provenance and licenses. This section sets the rules.
+Every formal grammar and every parser implementation of Lojban is part of the record. The source table in `tools/jbocirvei_tools/archive/grammars.py` is the inventory of sources, with their provenance and licenses. This section sets the rules.
 
 The layout is `grammars/<name>/…`, with these files:
 
@@ -988,7 +990,7 @@ The rules for each group of sources are:
   - `eaburns/johaus`.
   - `phma/valfendi`.
   - `int19h/jbotci`.
-  - The long tail (#58, and the `cite` rows in `tools/jbomohi_tools/project/grammars.py`: `zirsam`, `sneturfahi`, `nei`, `sotygeha`, `typed-lojban`, `genrei`, …). The maintainer decides whether to include a long-tail item. The default is to include anything that parses Lojban and has a license. The rest are listed in `index.csv` with `mechanism = cite`.
+  - The long tail (#58, and the `cite` rows in `tools/jbocirvei_tools/project/grammars.py`: `zirsam`, `sneturfahi`, `nei`, `sotygeha`, `typed-lojban`, `genrei`, …). The maintainer decides whether to include a long-tail item. The default is to include anything that parses Lojban and has a license. The rest are listed in `index.csv` with `mechanism = cite`.
 - zasni gerna (xorxes). The grammar is wiki text that is already in `wiki/`. It is vendored as an extracted `.peg` under `grammars/zasni-gerna/xorxes/`, with the date 2015-01-21 (its last wiki revision). It has a cross-reference to the wiki unit.
 - Duplicates are imported once:
   - `camxes-pamoi.peg` in ilmentufa is `lojban.peg` rev 1.39.
@@ -1015,9 +1017,9 @@ This directory holds these files:
 
 ### 4.1 Language and layout
 
-The tools use Python ≥ 3.13 with `uv`. The package is `jbomohi_tools`, and the CLI is `jbomohi` (`uv run jbomohi …`). Add a third-party dependency only with a reason recorded in `pyproject.toml`. The layout is:
+The tools use Python ≥ 3.13 with `uv`. The package is `jbocirvei_tools`, and the CLI is `jbocirvei` (`uv run jbocirvei …`). Add a third-party dependency only with a reason recorded in `pyproject.toml`. The layout is:
 
-- `tools/jbomohi_tools/` (`archive/`, `project/<source>.py`, `render/`, `who/`, `notes/`, `git.py`).
+- `tools/jbocirvei_tools/` (`archive/`, `project/<source>.py`, `render/`, `who/`, `notes/`, `git.py`).
 - `tools/templates/main/` (the instruction files for `main`).
 - `tools/tests/`.
 - `doc/`.
@@ -1026,20 +1028,20 @@ The tools use Python ≥ 3.13 with `uv`. The package is `jbomohi_tools`, and the
 ### 4.2 CLI
 
 ```
-jbomohi corpus init|status                  create / inspect the corpus repository holding main (JBOMOHI_CORPUS)
-jbomohi archive fetch <source> [--since …]  fetch into the archive tier; write manifests
-jbomohi archive verify                      sha256-check every manifest
-jbomohi build [--sources …] [--until DATE]  full deterministic rebuild of main (orphan root; --until is refused until every selected projector accepts the cut-off itself, since a merge-time filter would drop the _meta files that ride each stream's final event — decided 2026-09-14)
-jbomohi update [<source> …]                 append new events; refresh; tag snapshot/<ts> (never moves an existing tag; build, which replaces main by definition, retires and re-creates a snapshot tag that names a commit outside the new history, and the push of a rebuilt main updates such tags with --force only under the same human authorisation as the branch — decided 2026-09-15)
-jbomohi refresh                             re-render the instruction files at the tip from the corpus alone; no archive, no tag
-jbomohi verify                              invariants (§4.4)
-jbomohi cll render <edition>                per-edition rendering (§3.6)
-jbomohi who propose|promote                 attestation helpers (§3.7)
-jbomohi notes lint                          front matter + citation resolution (§3.8)
-jbomohi cite resolve <citation>             print the cited lines (the reference resolver)
+jbocirvei corpus init|status                  create / inspect the corpus repository holding main (JBOCIRVEI_CORPUS)
+jbocirvei archive fetch <source> [--since …]  fetch into the archive tier; write manifests
+jbocirvei archive verify                      sha256-check every manifest
+jbocirvei build [--sources …] [--until DATE]  full deterministic rebuild of main (orphan root; --until is refused until every selected projector accepts the cut-off itself, since a merge-time filter would drop the _meta files that ride each stream's final event — decided 2026-09-14)
+jbocirvei update [<source> …]                 append new events; refresh; tag snapshot/<ts> (never moves an existing tag; build, which replaces main by definition, retires and re-creates a snapshot tag that names a commit outside the new history, and the push of a rebuilt main updates such tags with --force only under the same human authorisation as the branch — decided 2026-09-15)
+jbocirvei refresh                             re-render the instruction files at the tip from the corpus alone; no archive, no tag
+jbocirvei verify                              invariants (§4.4)
+jbocirvei cll render <edition>                per-edition rendering (§3.6)
+jbocirvei who propose|promote                 attestation helpers (§3.7)
+jbocirvei notes lint                          front matter + citation resolution (§3.8)
+jbocirvei cite resolve <citation>             print the cited lines (the reference resolver)
 ```
 
-The commands are idempotent, that is, a second run with the same input gives the same result. They are also resumable: a stopped run can continue where it stopped. The network commands are rate-limited for each source, by default to at most 1 request/s. After a failure, they wait longer before they try again (backoff). The commands write only to the archive, to the corpus repository, and to `JBOMOHI_TMP`.
+The commands are idempotent, that is, a second run with the same input gives the same result. They are also resumable: a stopped run can continue where it stopped. The network commands are rate-limited for each source, by default to at most 1 request/s. After a failure, they wait longer before they try again (backoff). The commands write only to the archive, to the corpus repository, and to `JBOCIRVEI_TMP`.
 
 #### What `update` guarantees about the corpus it writes to (decided 2026-09-16)
 
@@ -1066,7 +1068,7 @@ The id `refresh@<ts>`, which comes from the snapshot, stays with the update that
 
 To find that nothing is new, `update` projects every source. For that, it needs the archive tier, which includes private dumps that only one machine holds. It also needs the memory for a full projection. A template change needs none of that.
 
-`jbomohi refresh` renders the instruction files at the tip from the corpus and the tools checkout alone. Every input of a refresh comes from there, on every path. `build`, `update` and `refresh` all read the coverage tallies back from the history after they commit. So they render the same table for the same corpus, and an `update` of some sources still describes all of them. The tallies count the commits in this way:
+`jbocirvei refresh` renders the instruction files at the tip from the corpus and the tools checkout alone. Every input of a refresh comes from there, on every path. `build`, `update` and `refresh` all read the coverage tallies back from the history after they commit. So they render the same table for the same corpus, and an `update` of some sources still describes all of them. The tallies count the commits in this way:
 
 - Each source event is one commit. Its `Source:` trailer names the source, which is grouped by its first path component. Its committer time is its source time.
 - For a `pre-epoch` event, the true date comes from `Source-Date:`.
@@ -1093,7 +1095,7 @@ Each source module exposes two functions:
 
 A single helper, `commit_event(event)`, enforces §2.5. Renderers have versions. A new renderer version needs a `build`, not an `update`.
 
-### 4.4 Invariants (`jbomohi verify`)
+### 4.4 Invariants (`jbocirvei verify`)
 
 An invariant is a rule that is always true for the corpus. This command makes sure that these invariants hold:
 
@@ -1125,7 +1127,7 @@ An invariant is a rule that is always true for the corpus. This command makes su
 
 If `verify` fails, the workflow never pushes.
 
-The initial `build` runs locally, because it takes hours and CI has a 6-hour limit. A maintainer applies the private dumps locally with `jbomohi update dict --dump <file>` (and `wiki --dump`, `tiki --dump`). The export commands on the operator side are not part of this repository.
+The initial `build` runs locally, because it takes hours and CI has a 6-hour limit. A maintainer applies the private dumps locally with `jbocirvei update dict --dump <file>` (and `wiki --dump`, `tiki --dump`). The export commands on the operator side are not part of this repository.
 
 ---
 
@@ -1143,7 +1145,7 @@ The tools render the instruction files from `tools/templates/main/` into the roo
   - The untrusted-text rule.
 
   Draft: `tools/templates/main/AGENTS.md`.
-- `CLAUDE.md`, `GEMINI.md` → `@AGENTS.md`. `.agents/rules/jbomohi.md` is an Antigravity always-on rule that points at `AGENTS.md`.
+- `CLAUDE.md`, `GEMINI.md` → `@AGENTS.md`. `.agents/rules/jbocirvei.md` is an Antigravity always-on rule that points at `AGENTS.md`.
 - `README.md`. It is for humans, and it states:
   - What this is.
   - How to clone, with a note on the submodule for `cll/src`.
@@ -1151,7 +1153,7 @@ The tools render the instruction files from `tools/templates/main/` into the roo
   - The citation grammar.
   - How to contribute notes and attestations.
   - A provenance and terms paragraph for each source directory. Each source is republished under its own terms, as its owner published them. Examples are the policy of the wiki and the copyright of LLG on CLL. Other examples are the public status of the list archives and the terms of the Loglan Institute. The paragraph states the terms verbatim or by a link. The repository claims no license of its own over the data (decided 2026-08-27).
-- `.gitignore`: `/.jbomohi/` (reserved for local caches that a harness can build) and OS junk files.
+- `.gitignore`: `/.jbocirvei/` (reserved for local caches that a harness can build) and OS junk files.
 
 ---
 
@@ -1177,7 +1179,7 @@ The tools render the instruction files from `tools/templates/main/` into the roo
   - Wiki pages: 14,118 ± the retried failures.
   - Unique lojban-list messages: ≈ 77,5k after both Maildirs.
   - IRC lines: 1.10M in `raw/` ± the jbosnu split.
-- Citation spot checks: take 30 citations from the research answers in `doc/eval/questions.jsonl`. Each one resolves with `jbomohi cite resolve` to the expected text.
+- Citation spot checks: take 30 citations from the research answers in `doc/eval/questions.jsonl`. Each one resolves with `jbocirvei cite resolve` to the expected text.
 - Librarian dry run: use a fresh clone of `main`, a coding harness with no extra instructions, and the 28 questions in `doc/eval/questions.jsonl`. A review session that the task designates reviews the answers for citation validity and for attribution. Citation validity means that every citation resolves and that quotes are verbatim. This is the acceptance test of §5, not of any model.
 - Size: §2.7 records the packed size and whether a push is feasible.
 
@@ -1187,7 +1189,7 @@ The tools render the instruction files from `tools/templates/main/` into the roo
 
 | # | deliverable | acceptance |
 |---|---|---|
-| M0 | The `tools` scaffold: the `uv` project, the CLI skeleton, `corpus init`, `commit_event`, the templates, `check.yml` | The tests pass. `jbomohi corpus init` creates an orphan `main` with the rendered root commit. |
+| M0 | The `tools` scaffold: the `uv` project, the CLI skeleton, `corpus init`, `commit_event`, the templates, `check.yml` | The tests pass. `jbocirvei corpus init` creates an orphan `main` with the rendered root commit. |
 | M1 | The repository: the wiki (full history), `lojban-list` mail (both local Maildirs), IRC (`lojban`, `jbosnu`, `ckule`). `build`, `update`, `verify`, snapshot tags. `README`/`AGENTS` rendered. Pushed to GitHub. | §7 determinism, counts, citation spot checks, librarian dry run, size recorded |
 | M2 | dict (from dumps, comments, votes). CLL submodule + editions + alignment. `who/` attestations + relays. `notes/` conventions + lint. Tiki. The other public lists (MHonArc). `update.yml`. | The dry run answers the as-of and diff questions with citations that resolve. `update.yml` completes one scheduled run. |
 

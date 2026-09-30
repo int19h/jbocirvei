@@ -1,4 +1,4 @@
-"""Command-line interface for the jbomo'i corpus tools."""
+"""Command-line interface for the jbocirvei corpus tools."""
 
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ from .git import EventError, GitError, commit_event, git_output
 from .project.cll import project as project_cll
 from .sources import SourceWiringError, source_factories
 
-LOG = logging.getLogger("jbomohi")
+LOG = logging.getLogger("jbocirvei")
 Handler = Callable[[argparse.Namespace, Config], int]
 
 
@@ -354,7 +354,7 @@ def _leaf(
 
 
 def parser() -> argparse.ArgumentParser:
-    root = argparse.ArgumentParser(prog="jbomohi", description=__doc__)
+    root = argparse.ArgumentParser(prog="jbocirvei", description=__doc__)
     root.add_argument("-v", "--verbose", action="count", default=0)
     commands = root.add_subparsers(dest="command", required=True)
 

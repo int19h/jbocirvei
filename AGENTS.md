@@ -1,6 +1,6 @@
-# jbomo'i: rules for project sessions
+# jbocirvei: rules for project sessions
 
-jbomo'i is the historical record of the Lojban community, kept as a public git
+jbocirvei is the historical record of the Lojban community, kept as a public git
 repository. The record includes the wiki and its history, the mailing lists,
 the IRC logs, the dictionary and its history, and every edition of the CLL.
 Each commit is one event from a source. Because of this, `grep` and `git` can
@@ -38,13 +38,13 @@ The repository has two branches, and they share no history
 - The `main` branch holds the record. Its data files have one commit for each
   source event.
 
-Only the tools write the data files on `main` (`jbomohi build|update`).
+Only the tools write the data files on `main` (`jbocirvei build|update`).
 Research notes and attestations that people add are ordinary commits on
 `main`. An attestation is a dated claim, with citations, about who a person
 is.
 
 Never write to `main` from the index of this checkout. Use the separate
-repository that `jbomohi corpus init` makes at the path in `JBOMOHI_CORPUS`.
+repository that `jbocirvei corpus init` makes at the path in `JBOCIRVEI_CORPUS`.
 That repository keeps its own git objects and does not share the objects of
 this checkout. Keep the corpus repository, the archive, and scratch files
 outside this checkout (`doc/SPEC.md §2`).
@@ -91,7 +91,7 @@ also hold deferred design and the decisions of the human partner.
   results.
 - To write files, use the structured patch or edit function of your client.
   Do not discard changes in the working tree that are not part of your task.
-  Never rewrite the history of `main`, except through `jbomohi build`.
+  Never rewrite the history of `main`, except through `jbocirvei build`.
 - If a task needs to parse Lojban, look up a word in the dictionary, or read
   the current CLL, use jbotci (https://jbotci.app). jbotci gives these tools
   over MCP.

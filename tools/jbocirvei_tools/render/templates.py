@@ -36,7 +36,7 @@ class RenderContext:
     snapshot: str = "root"
     schema: str = "1"
     tools_commit: str = ""
-    repo_url: str = "https://github.com/int19h/jbomohi.git"
+    repo_url: str = "https://github.com/int19h/jbocirvei.git"
     coverage_tables: str = DEFAULT_COVERAGE
     layout_summary: str = DEFAULT_LAYOUT
     provenance: str = DEFAULT_PROVENANCE

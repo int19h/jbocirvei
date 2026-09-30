@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from jbomohi_tools.archive.mail import (
+from jbocirvei_tools.archive.mail import (
     MailFetchError,
     extract_maildir_zip,
     fetch_jbosnu_raw,
@@ -22,7 +22,7 @@ from jbomohi_tools.archive.mail import (
     load_mhonarc_manifestations,
     load_old_lojban_manifestations,
 )
-from jbomohi_tools.archive.manifest import ArchiveManifest, object_path
+from jbocirvei_tools.archive.manifest import ArchiveManifest, object_path
 
 
 def zip_bytes(entries: dict[str, bytes]) -> bytes:

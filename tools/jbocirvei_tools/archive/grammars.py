@@ -427,7 +427,7 @@ class GrammarHttpClient:
         for attempt in range(self.attempts):
             self._pace()
             request = Request(
-                url, headers={"User-Agent": "jbomohi/0.1 grammar archiver"}
+                url, headers={"User-Agent": "jbocirvei/0.1 grammar archiver"}
             )
             try:
                 with urlopen(request, timeout=self.timeout) as response:
